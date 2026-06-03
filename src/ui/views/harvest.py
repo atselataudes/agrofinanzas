@@ -126,6 +126,14 @@ def show_harvest():
                     })
 
                     st.markdown("##### Confirma los kilos y agrega el precio")
+
+                    precio_unico = st.number_input(
+                        "Precio único para toda la fruta ($ / kg) — déjalo en 0 para poner precio por calibre",
+                        min_value=0.0, format="%.2f", key="ticket_precio_unico"
+                    )
+                    if precio_unico > 0:
+                        _ticket_base["Precio $"] = precio_unico
+
                     edited = st.data_editor(
                         _ticket_base,
                         column_config={
