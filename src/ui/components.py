@@ -18,14 +18,20 @@ def inject_custom_css():
             border-radius: 10px;
         }}
         [data-testid="stMetricValue"] {{
-            font-size: 1.8rem !important;
+            font-size: 1.4rem !important;
             font-weight: 700;
             color: {Config.COLOR_PRIMARY};
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
         [data-testid="stMetricLabel"] {{
             font-size: 0.85rem;
             color: #607d8b;
             font-weight: 500;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }}
 
         /* ── Buttons ─────────────────────────────────────────────── */
@@ -59,7 +65,7 @@ def inject_custom_css():
             margin: 0;
         }}
         .agro-header .sub {{
-            font-size: 0.75rem;
+            font-size: 0.8rem;
             color: #78909c;
             margin: 0;
         }}
@@ -83,10 +89,10 @@ def inject_custom_css():
 
             /* Valores de métrica más pequeños para que entren */
             [data-testid="stMetricValue"] {{
-                font-size: 1.25rem !important;
+                font-size: 1.1rem !important;
             }}
             [data-testid="stMetric"] {{
-                padding: 0.7rem 0.8rem;
+                padding: 0.6rem 0.7rem;
             }}
 
             /* Header compacto */
@@ -110,17 +116,21 @@ def inject_custom_css():
                 font-size: 16px !important;   /* evita zoom automático en iOS */
             }}
 
-            /* Dataframes con scroll horizontal */
+            /* Dataframes con scroll horizontal y fuente más compacta */
             [data-testid="stDataFrame"] {{
                 overflow-x: auto !important;
             }}
+            [data-testid="stDataFrame"] td, [data-testid="stDataFrame"] th {{
+                font-size: 0.8rem !important;
+            }}
 
-            /* Radio buttons con más espacio */
+            /* Radio buttons con más espacio y tamaño fijo */
             [data-testid="stRadio"] label {{
                 padding: 6px 0 !important;
                 min-height: 40px !important;
                 display: flex !important;
                 align-items: center !important;
+                font-size: 0.95rem !important;
             }}
 
             /* Reducir padding general de la página */
