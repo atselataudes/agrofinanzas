@@ -115,44 +115,25 @@ def show_harvest():
                     total_ext = datos.get("total_kilos") or 0
                     st.success(f"✅ Ticket leído — Folio: **{folio}** · Total extraído: **{total_ext:,.1f} kg**")
 
-                    # Construir tabla pre-llenada con kilos de la IA + columna precio vacía
-                    calibres_ia = {c["calibre"]: c["kilos"] for c in (datos.get("calibres") or [])}
-                    # Incluir calibres estándar + los que trajo la IA que no sean estándar
-                    todos = calibres + [c for c in calibres_ia if c not in calibres]
-                    _ticket_base = pd.DataFrame({
-                        "Calibre": todos,
-                        "Kilos (IA)": [calibres_ia.get(c, 0.0) for c in todos],
-                        "Precio $":   [0.0] * len(todos),
-                    })
-
+                    total_ext = datos.get("total_kilos") or 0.0
                     st.markdown("##### Confirma los kilos y agrega el precio")
-
-                    precio_unico = st.number_input(
-                        "Precio único para toda la fruta ($ / kg) — déjalo en 0 para poner precio por calibre",
-                        min_value=0.0, format="%.2f", key="ticket_precio_unico"
+                    ca, cb = st.columns(2)
+                    total_kilos = ca.number_input(
+                        "Total Kilos", min_value=0.0, value=float(total_ext),
+                        format="%.1f", key="ticket_kilos"
                     )
-                    if precio_unico > 0:
-                        _ticket_base["Precio $"] = precio_unico
-
-                    edited = st.data_editor(
-                        _ticket_base,
-                        column_config={
-                            "Calibre":   st.column_config.TextColumn(disabled=True, width="small"),
-                            "Kilos (IA)": st.column_config.NumberColumn(min_value=0.0, format="%.1f", width="small"),
-                            "Precio $":   st.column_config.NumberColumn(min_value=0.0, format="$%.2f", width="small"),
-                        },
-                        hide_index=True,
-                        use_container_width=True,
-                        key="ticket_editor",
+                    precio_ticket = cb.number_input(
+                        "Precio ($ / kg)", min_value=0.0, format="%.2f",
+                        key="ticket_precio_unico"
                     )
-                    for _, row in edited.iterrows():
-                        k = float(row["Kilos (IA)"])
-                        p = float(row["Precio $"])
-                        if k > 0:
-                            subtotal = k * p
-                            details.append({"calibre": row["Calibre"], "kilos": k, "precio_kg": p, "subtotal": subtotal})
-                            total_kilos += k
-                            total_monto += subtotal
+                    if total_kilos > 0 and precio_ticket > 0:
+                        total_monto = total_kilos * precio_ticket
+                        details.append({
+                            "calibre": "Pela Palo",
+                            "kilos": total_kilos,
+                            "precio_kg": precio_ticket,
+                            "subtotal": total_monto,
+                        })
 
         else:  # precio promedio
             st.markdown("#### Captura por Precio Promedio")
