@@ -1,8 +1,10 @@
+import os
 import sqlite3
 from config import Config
 
 def get_connection():
     """Returns a connection to the SQLite database."""
+    os.makedirs(os.path.dirname(Config.DB_NAME), exist_ok=True)
     conn = sqlite3.connect(Config.DB_NAME, check_same_thread=False)
     conn.execute("PRAGMA foreign_keys = 1")
     conn.row_factory = sqlite3.Row  # Access columns by name
