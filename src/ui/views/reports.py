@@ -1,3 +1,5 @@
+import os
+import shutil
 import streamlit as st
 import pandas as pd
 import altair as alt
@@ -5,6 +7,7 @@ from datetime import date
 from src.database.repository import Repository
 from src.utils.helpers import cents_to_float, format_currency
 from src.utils.constants import CATEGORIAS_PERSONALES
+from config import Config
 
 def show_reports():
     st.markdown("### 📊 Reportes Gerenciales")
@@ -178,5 +181,20 @@ def show_reports():
             st.dataframe(df_export.head(), use_container_width=True)
         else:
             st.info("No hay datos para exportar.")
+
+        st.divider()
+        with st.expander("⬆️ Restaurar base de datos desde archivo local", expanded=False):
+            st.warning("⚠️ Esto **reemplaza** todos los datos actuales con los del archivo que subas. Úsalo solo para migrar datos desde tu equipo.")
+            db_file = st.file_uploader("Selecciona tu archivo agro_finanzas_pro.db", type=["db"], key="db_upload")
+            if db_file and st.button("🔄 Restaurar ahora", type="primary", key="db_restore_btn"):
+                try:
+                    dest = Config.DB_NAME
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    with open(dest, "wb") as f:
+                        f.write(db_file.read())
+                    st.cache_data.clear()
+                    st.success("✅ Base de datos restaurada. Recarga la página para ver los datos.")
+                except Exception as e:
+                    st.error(f"Error al restaurar: {e}")
 
     # KPIs movidos al Dashboard (ver src/ui/views/dashboard.py)
