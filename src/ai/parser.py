@@ -108,6 +108,64 @@ def analizar_imagen(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
         return {"error": "No se pudo leer el comprobante. Intenta con mejor iluminación.", "raw": resp.content[0].text}
 
 
+def analizar_ticket_pesado(image_bytes: bytes, media_type: str = "image/jpeg") -> dict:
+    """
+    Lee un ticket de báscula/pesado de aguacate y extrae calibres + kilos.
+    Retorna:
+      { "fecha": "YYYY-MM-DD", "folio": "...", "total_kilos": 0.0,
+        "calibres": [{"calibre": "Extra", "kilos": 0.0}, ...] }
+    o {"error": "..."} en caso de fallo.
+    """
+    client, err = _get_client()
+    if err:
+        return {"error": err}
+
+    today = date.today().isoformat()
+    b64 = base64.standard_b64encode(image_bytes).decode()
+
+    prompt = f"""Eres un asistente especializado en tickets de báscula de empacadoras de aguacate.
+Analiza este ticket de pesado y extrae la información. Hoy es {today}.
+
+Devuelve SOLO JSON válido con esta estructura exacta:
+{{
+  "fecha": null,
+  "folio": null,
+  "total_kilos": null,
+  "calibres": []
+}}
+
+Reglas:
+- "fecha": en formato YYYY-MM-DD. Si no aparece usa "{today}".
+- "folio": número o clave del ticket. null si no aparece.
+- "total_kilos": peso total neto en kilos (número decimal).
+- "calibres": lista de objetos {{"calibre": "...", "kilos": 0.0}}.
+  Calibres estándar: Jumbo, Extra, Primera, Segunda, Canica, Descarte.
+  Si el ticket usa otros nombres (p.ej. "Grande", "Chico", "4s", "6s"), mapea al más cercano.
+  Si no puedes mapear, usa "Otros".
+- Usa null para campos que no puedas leer con certeza.
+- NO incluyas texto fuera del JSON."""
+
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1024,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": media_type, "data": b64}
+                },
+                {"type": "text", "text": prompt}
+            ]
+        }]
+    )
+
+    try:
+        return _clean_json(resp.content[0].text)
+    except Exception:
+        return {"error": "No se pudo leer el ticket. Intenta con mejor iluminación.", "raw": resp.content[0].text}
+
+
 def analizar_texto(texto: str) -> dict:
     """
     Parse a free-form expense description (from voice or text) into structured fields.

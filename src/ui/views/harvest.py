@@ -4,6 +4,7 @@ from datetime import date
 from src.database.repository import Repository
 from src.services.harvest import register_harvest
 from src.utils.helpers import format_currency, float_to_cents
+from src.ai.parser import analizar_ticket_pesado
 
 def show_harvest():
     st.markdown("### 🥑 Registro de Corte (Cosecha)")
@@ -30,7 +31,7 @@ def show_harvest():
 
         modo = st.radio(
             "Modo de captura",
-            ["📊 Por calibre (precio individual)", "⚖️ Precio promedio (un solo precio)"],
+            ["📊 Por calibre (precio individual)", "⚖️ Precio promedio (un solo precio)", "📷 Desde ticket de báscula"],
             horizontal=True,
             key="harvest_modo",
         )
@@ -68,6 +69,82 @@ def show_harvest():
                     details.append({"calibre": row["Calibre"], "kilos": k, "precio_kg": p, "subtotal": subtotal})
                     total_kilos += k
                     total_monto += subtotal
+
+        elif modo.startswith("📷"):  # ticket de báscula
+            st.markdown("#### 📷 Ticket de Báscula")
+            st.caption("Sube la foto del ticket — la IA extrae los kilos por calibre. Tú solo pones el precio.")
+
+            ticket_foto = st.file_uploader(
+                "Foto del ticket (jpg, png)",
+                type=["jpg", "jpeg", "png", "webp"],
+                key="ticket_uploader",
+            )
+
+            if ticket_foto:
+                col_img, col_btn = st.columns([2, 1])
+                col_img.image(ticket_foto, caption="Vista previa del ticket", use_container_width=True)
+
+                if col_btn.button("🔍 Leer ticket con IA", type="primary", key="ticket_analizar"):
+                    with st.spinner("Leyendo ticket…"):
+                        ext = ticket_foto.name.lower().split(".")[-1]
+                        mtype = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
+                                 "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
+                        resultado = analizar_ticket_pesado(ticket_foto.read(), mtype)
+                        st.session_state["ticket_resultado"] = resultado
+                        # Pre-llenar fecha si la IA la extrajo
+                        if resultado.get("fecha") and not resultado.get("error"):
+                            try:
+                                from datetime import datetime
+                                st.session_state["ticket_fecha"] = datetime.strptime(resultado["fecha"], "%Y-%m-%d").date()
+                            except Exception:
+                                pass
+                    st.rerun()
+
+            # Mostrar resultado de la IA
+            if "ticket_resultado" in st.session_state:
+                datos = st.session_state["ticket_resultado"]
+
+                if "error" in datos:
+                    st.error(f"❌ {datos['error']}")
+                    if st.button("Limpiar", key="ticket_clear"):
+                        st.session_state.pop("ticket_resultado", None)
+                        st.rerun()
+                else:
+                    # Info extraída
+                    folio = datos.get("folio") or "—"
+                    total_ext = datos.get("total_kilos") or 0
+                    st.success(f"✅ Ticket leído — Folio: **{folio}** · Total extraído: **{total_ext:,.1f} kg**")
+
+                    # Construir tabla pre-llenada con kilos de la IA + columna precio vacía
+                    calibres_ia = {c["calibre"]: c["kilos"] for c in (datos.get("calibres") or [])}
+                    # Incluir calibres estándar + los que trajo la IA que no sean estándar
+                    todos = calibres + [c for c in calibres_ia if c not in calibres]
+                    _ticket_base = pd.DataFrame({
+                        "Calibre": todos,
+                        "Kilos (IA)": [calibres_ia.get(c, 0.0) for c in todos],
+                        "Precio $":   [0.0] * len(todos),
+                    })
+
+                    st.markdown("##### Confirma los kilos y agrega el precio")
+                    edited = st.data_editor(
+                        _ticket_base,
+                        column_config={
+                            "Calibre":   st.column_config.TextColumn(disabled=True, width="small"),
+                            "Kilos (IA)": st.column_config.NumberColumn(min_value=0.0, format="%.1f", width="small"),
+                            "Precio $":   st.column_config.NumberColumn(min_value=0.0, format="$%.2f", width="small"),
+                        },
+                        hide_index=True,
+                        use_container_width=True,
+                        key="ticket_editor",
+                    )
+                    for _, row in edited.iterrows():
+                        k = float(row["Kilos (IA)"])
+                        p = float(row["Precio $"])
+                        if k > 0:
+                            subtotal = k * p
+                            details.append({"calibre": row["Calibre"], "kilos": k, "precio_kg": p, "subtotal": subtotal})
+                            total_kilos += k
+                            total_monto += subtotal
 
         else:  # precio promedio
             st.markdown("#### Captura por Precio Promedio")
