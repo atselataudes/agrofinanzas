@@ -105,11 +105,32 @@ def init_db():
     # 8. Folios de tickets ya registrados (evita duplicados)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS reg_ticket_folios (
-        folio      TEXT PRIMARY KEY,
-        movement_id INTEGER,
-        registrado_at TEXT DEFAULT CURRENT_TIMESTAMP
+        folio           TEXT PRIMARY KEY,
+        movement_id     INTEGER,
+        empaque         TEXT,
+        cliente         TEXT,
+        lote            TEXT,
+        fecha_ticket    TEXT,
+        total_kilos     REAL,
+        precio_kg       REAL,
+        total_monto     REAL,
+        registrado_at   TEXT DEFAULT CURRENT_TIMESTAMP
     )
     """)
+    # Migración: agregar columnas si ya existía la tabla sin ellas
+    for col, tipo in [
+        ("empaque",      "TEXT"),
+        ("cliente",      "TEXT"),
+        ("lote",         "TEXT"),
+        ("fecha_ticket", "TEXT"),
+        ("total_kilos",  "REAL"),
+        ("precio_kg",    "REAL"),
+        ("total_monto",  "REAL"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE reg_ticket_folios ADD COLUMN {col} {tipo}")
+        except Exception:
+            pass  # La columna ya existe
     # Insert default initial balance if not exists
     cursor.execute("INSERT OR IGNORE INTO cat_settings (key, value) VALUES ('saldo_inicial_centavos', '0')")
     

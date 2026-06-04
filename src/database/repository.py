@@ -189,16 +189,52 @@ class Repository:
 
     # --- TICKET FOLIOS ---
     def folio_exists(self, folio: str) -> bool:
-        res = self._execute_query(
-            "SELECT folio FROM reg_ticket_folios WHERE folio = ?", (folio,), fetch_one=True
-        )
-        return res is not None
+        # Busca en la tabla de folios (si existe)
+        try:
+            res = self._execute_query(
+                "SELECT folio FROM reg_ticket_folios WHERE folio = ?", (folio,), fetch_one=True
+            )
+            if res is not None:
+                return True
+        except Exception:
+            pass
+        # Fallback: busca el folio en el concepto de movimientos existentes
+        try:
+            tag = f"[Folio:{folio}]"
+            res = self._execute_query(
+                "SELECT id FROM fin_movimientos WHERE concepto LIKE ?", (f"%{tag}%",), fetch_one=True
+            )
+            return res is not None
+        except Exception:
+            return False
 
-    def register_folio(self, folio: str, movement_id: int):
-        self._execute_query(
-            "INSERT OR IGNORE INTO reg_ticket_folios (folio, movement_id) VALUES (?, ?)",
-            (folio, movement_id), commit=True
-        )
+    def register_folio(self, folio: str, movement_id: int,
+                       empaque: str = None, cliente: str = None, lote: str = None,
+                       fecha_ticket: str = None, total_kilos: float = None,
+                       precio_kg: float = None, total_monto: float = None):
+        try:
+            self._execute_query(
+                """INSERT OR IGNORE INTO reg_ticket_folios
+                   (folio, movement_id, empaque, cliente, lote,
+                    fecha_ticket, total_kilos, precio_kg, total_monto)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                (folio, movement_id, empaque, cliente, lote,
+                 fecha_ticket, total_kilos, precio_kg, total_monto),
+                commit=True
+            )
+        except Exception:
+            pass
+
+    def get_ticket_folios_df(self) -> pd.DataFrame:
+        """Historial de todos los tickets registrados."""
+        try:
+            return self.get_dataframe(
+                "SELECT folio, empaque, cliente, lote, fecha_ticket, "
+                "total_kilos, precio_kg, total_monto, registrado_at "
+                "FROM reg_ticket_folios ORDER BY registrado_at DESC"
+            )
+        except Exception:
+            return pd.DataFrame()
 
     # --- SETTINGS ---
     def get_setting(self, key: str, default: str = None) -> str:

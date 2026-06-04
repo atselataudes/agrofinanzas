@@ -11,7 +11,7 @@ from config import Config
 
 def show_reports():
     st.markdown("### 📊 Reportes Gerenciales")
-    t1, t2, t3, t4, t5 = st.tabs(["Negocio", "Personal", "Deudas", "Lotes", "💾 Exportar"])
+    t1, t2, t3, t4, t5, t6 = st.tabs(["Negocio", "Personal", "Deudas", "Lotes", "🎫 Tickets", "💾 Exportar"])
     repo = Repository()
     
     # Fetch all data once for processing
@@ -160,8 +160,38 @@ def show_reports():
                     st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
-    # --- TAB 5: EXPORTAR ---
+    # --- TAB 5: TICKETS ---
     with t5:
+        st.markdown("### 🎫 Historial de Tickets Registrados")
+        df_tickets = repo.get_ticket_folios_df()
+        if not df_tickets.empty:
+            df_tickets = df_tickets.rename(columns={
+                "folio":        "Folio",
+                "empaque":      "Empaque",
+                "cliente":      "Cliente",
+                "lote":         "Huerto",
+                "fecha_ticket": "Fecha Ticket",
+                "total_kilos":  "Kilos",
+                "precio_kg":    "Precio $/kg",
+                "total_monto":  "Total Venta",
+                "registrado_at":"Registrado",
+            })
+            df_tickets["Total Venta"] = df_tickets["Total Venta"].apply(
+                lambda x: format_currency(x) if x else "—"
+            )
+            df_tickets["Precio $/kg"] = df_tickets["Precio $/kg"].apply(
+                lambda x: format_currency(x) if x else "—"
+            )
+            df_tickets["Kilos"] = df_tickets["Kilos"].apply(
+                lambda x: f"{x:,.1f} kg" if x else "—"
+            )
+            st.dataframe(df_tickets, use_container_width=True, hide_index=True)
+            st.caption(f"Total tickets registrados: {len(df_tickets)}")
+        else:
+            st.info("Aún no hay tickets registrados desde la báscula.")
+
+    # --- TAB 6: EXPORTAR ---
+    with t6:
         st.header("💾 Descargar Base de Datos")
         if not df_all.empty:
             df_export = df_all.copy()

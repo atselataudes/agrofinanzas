@@ -129,13 +129,12 @@ def show_harvest():
                             st.rerun()
                         # Salir sin mostrar el formulario
                     else:
-                        st.success(f"✅ Ticket leído — Folio: **{folio or '(sin folio)'}** · Total extraído: **{total_ext:,.1f} kg**")
-
-                        total_ext = datos.get("total_kilos") or 0.0
+                        st.success(f"✅ Ticket leído — Folio: **{folio or '(sin folio)'}** · Total extraído: **{datos.get('total_kilos') or 0:,.1f} kg**")
                         st.markdown("##### Confirma los kilos y agrega el precio")
                         ca, cb = st.columns(2)
                         total_kilos = ca.number_input(
-                            "Total Kilos", min_value=0.0, value=float(total_ext),
+                            "Total Kilos", min_value=0.0,
+                            value=float(datos.get("total_kilos") or 0.0),
                             format="%.1f", key="ticket_kilos"
                         )
                         precio_ticket = cb.number_input(
@@ -184,11 +183,23 @@ def show_harvest():
                         cliente_id=clientes_map[cliente_sel],
                         details=details,
                         comprobante_path=ticket_path,
+                        folio=ticket_folio,
                     )
 
-                    # Registrar folio para evitar duplicados futuros
+                    # Registrar folio con todos los datos para historial
                     if ticket_folio:
-                        repo.register_folio(ticket_folio, mov_id)
+                        datos_ticket = st.session_state.get("ticket_resultado", {})
+                        repo.register_folio(
+                            folio=ticket_folio,
+                            movement_id=mov_id,
+                            empaque=datos_ticket.get("empaque"),
+                            cliente=cliente_sel,
+                            lote=lote_sel,
+                            fecha_ticket=datos_ticket.get("fecha"),
+                            total_kilos=sum(d["kilos"] for d in details),
+                            precio_kg=details[0]["precio_kg"] if details else None,
+                            total_monto=sum(d["subtotal"] for d in details),
+                        )
 
                     # Limpiar estado del ticket
                     for k in ["ticket_resultado", "ticket_foto_path"]:

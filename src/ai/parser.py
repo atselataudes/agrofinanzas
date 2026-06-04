@@ -130,6 +130,7 @@ Devuelve SOLO JSON válido con esta estructura exacta:
 {{
   "fecha": null,
   "folio": null,
+  "empaque": null,
   "total_kilos": null,
   "calibres": []
 }}
@@ -137,6 +138,7 @@ Devuelve SOLO JSON válido con esta estructura exacta:
 Reglas:
 - "fecha": en formato YYYY-MM-DD. Si no aparece usa "{today}".
 - "folio": número o clave del ticket. null si no aparece.
+- "empaque": nombre de la empacadora, empresa o cliente que emite el ticket. null si no aparece.
 - "total_kilos": peso total neto en kilos (número decimal).
 - "calibres": lista de objetos {{"calibre": "...", "kilos": 0.0}}.
   Calibres estándar: Jumbo, Extra, Primera, Segunda, Canica, Descarte.
