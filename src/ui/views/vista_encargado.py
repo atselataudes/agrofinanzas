@@ -39,14 +39,11 @@ def _login(repo: Repository):
                 st.error("PIN incorrecto.")
 
 
-def show_vista_encargado():
-    repo = Repository()
+def show_encargado_app():
+    """Vista completa del encargado — ya autenticado desde app.py."""
+    from src.ui.components import render_header
+    render_header()
 
-    if not st.session_state.get(_SESSION_KEY):
-        _login(repo)
-        return
-
-    # Sidebar del encargado — solo su menú
     with st.sidebar:
         st.markdown("### 👷 Encargado")
         seccion = st.radio(
@@ -59,11 +56,10 @@ def show_vista_encargado():
         st.session_state[_NAV_KEY] = seccion
         st.divider()
         if st.button("🔒 Cerrar sesión", use_container_width=True, key="enc_logout"):
-            st.session_state[_SESSION_KEY] = False
+            st.session_state.pop("rol_activo", None)
             st.session_state.pop(_NAV_KEY, None)
             st.rerun()
 
-    # Routing
     if seccion == "🤖 Captura":
         show_captura_inteligente()
     elif seccion == "📝 Gastos":
@@ -72,6 +68,11 @@ def show_vista_encargado():
         show_harvest()
     elif seccion == "📋 Bitácora":
         show_bitacora(modo_encargado=True)
+
+
+def show_vista_encargado():
+    """Mantiene compatibilidad — redirige a show_encargado_app."""
+    show_encargado_app()
 
 
 def show_cambiar_pin():

@@ -13,13 +13,13 @@ from src.ui.views.journal import show_journal
 from src.ui.views.captura_inteligente import show_captura_inteligente
 from src.ui.views.asistente import show_asistente
 from src.ui.views.bitacora import show_bitacora
-from src.ui.views.vista_encargado import show_vista_encargado
+from src.ui.views.vista_encargado import show_encargado_app
 
 # --- CONFIGURATION ---
 st.set_page_config(
-    page_title=Config.PAGE_TITLE, 
-    page_icon=Config.PAGE_ICON, 
-    layout=Config.LAYOUT, 
+    page_title=Config.PAGE_TITLE,
+    page_icon=Config.PAGE_ICON,
+    layout=Config.LAYOUT,
     initial_sidebar_state="expanded"
 )
 
@@ -28,69 +28,84 @@ init_db()
 Config.setup_folders()
 inject_custom_css()
 
-# --- HEADER ---
-render_header()
+# ── LOGIN ────────────────────────────────────────────────────────────────────
+def _check_login():
+    from src.database.repository import Repository
+    repo = Repository()
 
-# --- NAVIGATION ---
-with st.sidebar:
-    st.title("Menú")
-    _default_nav = st.session_state.pop("_nav", "🏠 Inicio")
-    _nav_options = [
-        "🏠 Inicio",
-        "🧠 Asistente",
-        "🤖 Captura",
-        "📒 Diario",
-        "🥑 Corte",
-        "📝 Movimientos",
-        "📦 Inventario",
-        "📂 Catálogos",
-        "🏦 Créditos",
-        "📊 Reportes",
-        "📋 Bitácora",
-        "👷 Encargado",
-    ]
-    _nav_index = _nav_options.index(_default_nav) if _default_nav in _nav_options else 0
-    menu = st.radio(
-        "Ir a:",
-        _nav_options,
-        index=_nav_index,
-        label_visibility="collapsed"
-    )
-    st.divider()
+    if "rol_activo" in st.session_state:
+        return True
 
-# --- ROUTING ---
-if menu == "🏠 Inicio":
-    show_dashboard()
+    render_header()
+    st.markdown("### Iniciar sesión")
 
-elif menu == "🧠 Asistente":
-    show_asistente()
+    rol = st.radio("¿Quién eres?", ["👨‍💼 Administrador", "👷 Encargado"],
+                   horizontal=True, key="login_rol")
 
-elif menu == "🤖 Captura":
-    show_captura_inteligente()
+    with st.container(border=True):
+        pwd = st.text_input("Contraseña / PIN", type="password",
+                            placeholder="••••", key="login_pwd")
+        if st.button("Entrar", type="primary", use_container_width=True, key="login_btn"):
+            if rol == "👨‍💼 Administrador":
+                clave_admin = repo.get_setting("password_admin", "admin")
+                if pwd == clave_admin:
+                    st.session_state["rol_activo"] = "admin"
+                    st.rerun()
+                else:
+                    st.error("Contraseña incorrecta.")
+            else:
+                pin_enc = repo.get_setting("pin_encargado", "1234")
+                if pwd == pin_enc:
+                    st.session_state["rol_activo"] = "encargado"
+                    st.rerun()
+                else:
+                    st.error("PIN incorrecto.")
+    return False
 
-elif menu == "📒 Diario":
-    show_journal()
 
-elif menu == "🥑 Corte":
-    show_harvest()
+if not _check_login():
+    st.stop()
 
-elif menu == "📝 Movimientos":
-    show_movements()
+# ── ADMIN ────────────────────────────────────────────────────────────────────
+if st.session_state.get("rol_activo") == "admin":
+    render_header()
 
-elif menu == "📦 Inventario":
-    show_inventory()
+    with st.sidebar:
+        st.title("Menú")
+        _default_nav = st.session_state.pop("_nav", "🏠 Inicio")
+        _nav_options = [
+            "🏠 Inicio",
+            "🧠 Asistente",
+            "🤖 Captura",
+            "📒 Diario",
+            "🥑 Corte",
+            "📝 Movimientos",
+            "📦 Inventario",
+            "📂 Catálogos",
+            "🏦 Créditos",
+            "📊 Reportes",
+            "📋 Bitácora",
+        ]
+        _nav_index = _nav_options.index(_default_nav) if _default_nav in _nav_options else 0
+        menu = st.radio("Ir a:", _nav_options, index=_nav_index,
+                        label_visibility="collapsed")
+        st.divider()
+        if st.button("🔒 Cerrar sesión", use_container_width=True, key="admin_logout"):
+            st.session_state.pop("rol_activo", None)
+            st.rerun()
 
-elif menu == "📂 Catálogos":
-    show_catalogs()
+    if menu == "🏠 Inicio":          show_dashboard()
+    elif menu == "🧠 Asistente":     show_asistente()
+    elif menu == "🤖 Captura":       show_captura_inteligente()
+    elif menu == "📒 Diario":        show_journal()
+    elif menu == "🥑 Corte":         show_harvest()
+    elif menu == "📝 Movimientos":   show_movements()
+    elif menu == "📦 Inventario":    show_inventory()
+    elif menu == "📂 Catálogos":     show_catalogs()
+    elif menu == "🏦 Créditos":      show_credits()
+    elif menu == "📊 Reportes":      show_reports()
+    elif menu == "📋 Bitácora":      show_bitacora()
 
-elif menu == "🏦 Créditos":
-    show_credits()
-
-elif menu == "📊 Reportes":
-    show_reports()
-
-elif menu == "📋 Bitácora":
-    show_bitacora()
-
-elif menu == "👷 Encargado":
-    show_vista_encargado()
+# ── ENCARGADO ────────────────────────────────────────────────────────────────
+elif st.session_state.get("rol_activo") == "encargado":
+    show_encargado_app()
