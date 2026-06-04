@@ -14,17 +14,22 @@ def register_harvest(
     cliente_id: int,
     details: List[Dict],
     comprobante_path: str = None,
+    folio: str = None,
 ) -> int:
     """Creates the harvest movement and its calibre breakdown.
     Returns the new movement ID."""
     total_kilos = sum(d["kilos"] for d in details)
     total_monto = sum(d["subtotal"] for d in details)
 
+    concepto = f"Corte {lote_nombre} - {total_kilos}kg"
+    if folio:
+        concepto += f" [Folio:{folio}]"
+
     mov = MovementCreate(
         fecha=fecha,
         tipo="Ingreso",
         categoria="🥑 Venta Cosecha (Exportación)",
-        concepto=f"Corte {lote_nombre} - {total_kilos}kg",
+        concepto=concepto,
         cantidad=total_kilos,
         monto_centavos=float_to_cents(total_monto),
         tercero_id=cliente_id,
