@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from src.database.repository import Repository
 from src.models.schemas import LotCreate, ThirdPartyCreate
+from src.ui.views.vista_encargado import show_cambiar_pin
 
 def show_catalogs():
     st.markdown("### 📂 Catálogos")
@@ -70,3 +71,6 @@ def show_catalogs():
                 repo.update_setting('saldo_inicial_centavos', str(float_to_cents(new_balance)))
                 st.success("Configuración guardada.")
                 st.rerun()
+
+        st.divider()
+        show_cambiar_pin()

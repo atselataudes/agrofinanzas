@@ -187,6 +187,43 @@ class Repository:
     def get_harvest_details(self, movement_id: int):
         return self.get_dataframe("SELECT * FROM ops_harvest WHERE movement_id=?", (movement_id,))
 
+    # --- BITÁCORA ---
+    def create_bitacora_entry(self, fecha: str, lote_id: int, tipo_actividad: str,
+                               descripcion: str = None, producto: str = None,
+                               dosis: str = None, responsable: str = None,
+                               observaciones: str = None) -> int:
+        return self._execute_query(
+            """INSERT INTO ops_bitacora
+               (fecha, lote_id, tipo_actividad, descripcion, producto, dosis, responsable, observaciones)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (fecha, lote_id, tipo_actividad, descripcion, producto, dosis, responsable, observaciones),
+            commit=True
+        )
+
+    def get_bitacora_df(self, lote_id: int = None, fecha_inicio: str = None, fecha_fin: str = None):
+        query = """
+            SELECT b.id, b.fecha, l.nombre as lote, b.tipo_actividad,
+                   b.descripcion, b.producto, b.dosis, b.responsable, b.observaciones
+            FROM ops_bitacora b
+            LEFT JOIN cat_lotes l ON b.lote_id = l.id
+            WHERE 1=1
+        """
+        params = []
+        if lote_id:
+            query += " AND b.lote_id = ?"
+            params.append(lote_id)
+        if fecha_inicio:
+            query += " AND b.fecha >= ?"
+            params.append(fecha_inicio)
+        if fecha_fin:
+            query += " AND b.fecha <= ?"
+            params.append(fecha_fin)
+        query += " ORDER BY b.fecha DESC"
+        return self.get_dataframe(query, tuple(params))
+
+    def delete_bitacora_entry(self, entry_id: int):
+        self._execute_query("DELETE FROM ops_bitacora WHERE id=?", (entry_id,), commit=True)
+
     # --- TICKET FOLIOS ---
     def folio_exists(self, folio: str) -> bool:
         # Busca en la tabla de folios y verifica que el movimiento aún exista

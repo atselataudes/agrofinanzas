@@ -102,7 +102,23 @@ def init_db():
     )
     """)
 
-    # 8. Folios de tickets ya registrados (evita duplicados)
+    # 8. Bitácora de actividades del huerto (trazabilidad)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ops_bitacora (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        fecha           TEXT NOT NULL,
+        lote_id         INTEGER REFERENCES cat_lotes(id) ON DELETE SET NULL,
+        tipo_actividad  TEXT NOT NULL,
+        descripcion     TEXT,
+        producto        TEXT,
+        dosis           TEXT,
+        responsable     TEXT,
+        observaciones   TEXT,
+        created_at      TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 9. Folios de tickets ya registrados (evita duplicados)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS reg_ticket_folios (
         folio           TEXT PRIMARY KEY,

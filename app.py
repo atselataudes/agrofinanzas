@@ -12,6 +12,8 @@ from src.ui.views.harvest import show_harvest
 from src.ui.views.journal import show_journal
 from src.ui.views.captura_inteligente import show_captura_inteligente
 from src.ui.views.asistente import show_asistente
+from src.ui.views.bitacora import show_bitacora
+from src.ui.views.vista_encargado import show_vista_encargado
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -44,6 +46,8 @@ with st.sidebar:
         "📂 Catálogos",
         "🏦 Créditos",
         "📊 Reportes",
+        "📋 Bitácora",
+        "👷 Encargado",
     ]
     _nav_index = _nav_options.index(_default_nav) if _default_nav in _nav_options else 0
     menu = st.radio(
@@ -84,3 +88,9 @@ elif menu == "🏦 Créditos":
 
 elif menu == "📊 Reportes":
     show_reports()
+
+elif menu == "📋 Bitácora":
+    show_bitacora()
+
+elif menu == "👷 Encargado":
+    show_vista_encargado()
