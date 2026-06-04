@@ -5,6 +5,7 @@ from src.database.repository import Repository
 from src.services.harvest import register_harvest
 from src.utils.helpers import format_currency, float_to_cents
 from src.ai.parser import analizar_ticket_pesado
+from src.utils.helpers import save_uploaded_file
 
 def show_harvest():
     st.markdown("### 🥑 Registro de Corte (Cosecha)")
@@ -89,8 +90,13 @@ def show_harvest():
                         ext = ticket_foto.name.lower().split(".")[-1]
                         mtype = {"jpg": "image/jpeg", "jpeg": "image/jpeg",
                                  "png": "image/png", "webp": "image/webp"}.get(ext, "image/jpeg")
-                        resultado = analizar_ticket_pesado(ticket_foto.read(), mtype)
+                        img_bytes = ticket_foto.read()
+                        resultado = analizar_ticket_pesado(img_bytes, mtype)
                         st.session_state["ticket_resultado"] = resultado
+                        # Guardar foto del ticket en disco
+                        ticket_foto.seek(0)
+                        path = save_uploaded_file(ticket_foto)
+                        st.session_state["ticket_foto_path"] = path
                         # Pre-llenar fecha si la IA la extrajo
                         if resultado.get("fecha") and not resultado.get("error"):
                             try:
@@ -111,29 +117,39 @@ def show_harvest():
                         st.rerun()
                 else:
                     # Info extraída
-                    folio = datos.get("folio") or "—"
+                    folio = datos.get("folio") or None
                     total_ext = datos.get("total_kilos") or 0
-                    st.success(f"✅ Ticket leído — Folio: **{folio}** · Total extraído: **{total_ext:,.1f} kg**")
 
-                    total_ext = datos.get("total_kilos") or 0.0
-                    st.markdown("##### Confirma los kilos y agrega el precio")
-                    ca, cb = st.columns(2)
-                    total_kilos = ca.number_input(
-                        "Total Kilos", min_value=0.0, value=float(total_ext),
-                        format="%.1f", key="ticket_kilos"
-                    )
-                    precio_ticket = cb.number_input(
-                        "Precio ($ / kg)", min_value=0.0, format="%.2f",
-                        key="ticket_precio_unico"
-                    )
-                    if total_kilos > 0 and precio_ticket > 0:
-                        total_monto = total_kilos * precio_ticket
-                        details.append({
-                            "calibre": "Pela Palo",
-                            "kilos": total_kilos,
-                            "precio_kg": precio_ticket,
-                            "subtotal": total_monto,
-                        })
+                    # Validar folio duplicado
+                    if folio and repo.folio_exists(folio):
+                        st.error(f"⛔ El folio **{folio}** ya fue registrado anteriormente. No se puede registrar dos veces el mismo ticket.")
+                        if st.button("Limpiar", key="ticket_clear_dup"):
+                            for k in ["ticket_resultado", "ticket_foto_path"]:
+                                st.session_state.pop(k, None)
+                            st.rerun()
+                        # Salir sin mostrar el formulario
+                    else:
+                        st.success(f"✅ Ticket leído — Folio: **{folio or '(sin folio)'}** · Total extraído: **{total_ext:,.1f} kg**")
+
+                        total_ext = datos.get("total_kilos") or 0.0
+                        st.markdown("##### Confirma los kilos y agrega el precio")
+                        ca, cb = st.columns(2)
+                        total_kilos = ca.number_input(
+                            "Total Kilos", min_value=0.0, value=float(total_ext),
+                            format="%.1f", key="ticket_kilos"
+                        )
+                        precio_ticket = cb.number_input(
+                            "Precio ($ / kg)", min_value=0.0, format="%.2f",
+                            key="ticket_precio_unico"
+                        )
+                        if total_kilos > 0 and precio_ticket > 0:
+                            total_monto = total_kilos * precio_ticket
+                            details.append({
+                                "calibre": "Pela Palo",
+                                "kilos": total_kilos,
+                                "precio_kg": precio_ticket,
+                                "subtotal": total_monto,
+                            })
 
         else:  # precio promedio
             st.markdown("#### Captura por Precio Promedio")
@@ -154,14 +170,30 @@ def show_harvest():
         if st.button("💾 Guardar Corte", type="primary"):
             if total_monto > 0:
                 try:
-                    register_harvest(
+                    # Foto del ticket (si viene de modo ticket)
+                    ticket_path = st.session_state.get("ticket_foto_path")
+                    ticket_folio = None
+                    if "ticket_resultado" in st.session_state:
+                        ticket_folio = st.session_state["ticket_resultado"].get("folio")
+
+                    mov_id = register_harvest(
                         repo=repo,
                         fecha=fecha,
                         lote_nombre=lote_sel,
                         lote_id=lotes_map[lote_sel],
                         cliente_id=clientes_map[cliente_sel],
                         details=details,
+                        comprobante_path=ticket_path,
                     )
+
+                    # Registrar folio para evitar duplicados futuros
+                    if ticket_folio:
+                        repo.register_folio(ticket_folio, mov_id)
+
+                    # Limpiar estado del ticket
+                    for k in ["ticket_resultado", "ticket_foto_path"]:
+                        st.session_state.pop(k, None)
+
                     st.balloons()
                     st.success("✅ Corte registrado exitosamente.")
                     st.rerun()

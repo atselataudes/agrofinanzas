@@ -101,6 +101,15 @@ def init_db():
         value TEXT
     )
     """)
+
+    # 8. Folios de tickets ya registrados (evita duplicados)
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS reg_ticket_folios (
+        folio      TEXT PRIMARY KEY,
+        movement_id INTEGER,
+        registrado_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
     # Insert default initial balance if not exists
     cursor.execute("INSERT OR IGNORE INTO cat_settings (key, value) VALUES ('saldo_inicial_centavos', '0')")
     

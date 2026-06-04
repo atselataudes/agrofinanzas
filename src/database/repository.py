@@ -187,6 +187,19 @@ class Repository:
     def get_harvest_details(self, movement_id: int):
         return self.get_dataframe("SELECT * FROM ops_harvest WHERE movement_id=?", (movement_id,))
 
+    # --- TICKET FOLIOS ---
+    def folio_exists(self, folio: str) -> bool:
+        res = self._execute_query(
+            "SELECT folio FROM reg_ticket_folios WHERE folio = ?", (folio,), fetch_one=True
+        )
+        return res is not None
+
+    def register_folio(self, folio: str, movement_id: int):
+        self._execute_query(
+            "INSERT OR IGNORE INTO reg_ticket_folios (folio, movement_id) VALUES (?, ?)",
+            (folio, movement_id), commit=True
+        )
+
     # --- SETTINGS ---
     def get_setting(self, key: str, default: str = None) -> str:
         res = self._execute_query("SELECT value FROM cat_settings WHERE key=?", (key,), fetch_one=True)

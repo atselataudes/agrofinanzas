@@ -13,6 +13,7 @@ def register_harvest(
     lote_id: int,
     cliente_id: int,
     details: List[Dict],
+    comprobante_path: str = None,
 ) -> int:
     """Creates the harvest movement and its calibre breakdown.
     Returns the new movement ID."""
@@ -28,7 +29,7 @@ def register_harvest(
         monto_centavos=float_to_cents(total_monto),
         tercero_id=cliente_id,
         lote_id=lote_id,
-        comprobante_path=None,
+        comprobante_path=comprobante_path,
     )
     mov_id = repo.create_movement(mov)
 
