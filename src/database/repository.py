@@ -189,12 +189,26 @@ class Repository:
 
     # --- TICKET FOLIOS ---
     def folio_exists(self, folio: str) -> bool:
-        # Busca en la tabla de folios (si existe)
+        # Busca en la tabla de folios y verifica que el movimiento aún exista
         try:
             res = self._execute_query(
-                "SELECT folio FROM reg_ticket_folios WHERE folio = ?", (folio,), fetch_one=True
+                "SELECT movement_id FROM reg_ticket_folios WHERE folio = ?",
+                (folio,), fetch_one=True
             )
             if res is not None:
+                mov_id = res.get("movement_id")
+                if mov_id:
+                    mov = self._execute_query(
+                        "SELECT id FROM fin_movimientos WHERE id = ?",
+                        (mov_id,), fetch_one=True
+                    )
+                    if mov is None:
+                        # El movimiento fue borrado — liberar el folio
+                        self._execute_query(
+                            "DELETE FROM reg_ticket_folios WHERE folio = ?",
+                            (folio,), commit=True
+                        )
+                        return False
                 return True
         except Exception:
             pass
@@ -202,7 +216,8 @@ class Repository:
         try:
             tag = f"[Folio:{folio}]"
             res = self._execute_query(
-                "SELECT id FROM fin_movimientos WHERE concepto LIKE ?", (f"%{tag}%",), fetch_one=True
+                "SELECT id FROM fin_movimientos WHERE concepto LIKE ?",
+                (f"%{tag}%",), fetch_one=True
             )
             return res is not None
         except Exception:
