@@ -37,10 +37,17 @@ def show_reports(ocultar_personal: bool = False):
         df_cortes = df_mov[df_mov['categoria'].str.contains("Venta Cosecha|Corte", case=False, na=False)]
         ultima_cosecha = df_cortes['fecha_dt'].max().date() if not df_cortes.empty else date(2000, 1, 1)
 
-        # ── Mis ingresos netos ────────────────────────────────────────────────
+        # ── Mis ingresos netos = SOLO ventas de fruta ────────────────────────
+        # Exportación ya guardada al 50%, Nacional al 100% — NO incluye
+        # préstamos recibidos (Financiamiento) ni anticipos
+        CATEGORIAS_VENTA = [
+            "🥑 Venta Cosecha (Exportación)",
+            "🥑 Venta Cosecha (Nacional)",
+            "🗑️ Venta Descarte/Merma",
+        ]
         mis_ingresos = df_mov[
             (df_mov['tipo'] == 'Ingreso') &
-            (~df_mov['categoria'].isin(['Financiamiento']))
+            (df_mov['categoria'].isin(CATEGORIAS_VENTA))
         ]['Monto'].sum()
 
         # ── Gastos del huerto desde último corte ──────────────────────────────
