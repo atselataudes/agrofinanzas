@@ -38,17 +38,25 @@ def show_reports(ocultar_personal: bool = False):
         ultima_cosecha = df_cortes['fecha_dt'].max().date() if not df_cortes.empty else date(2000, 1, 1)
 
         # ── Mis ingresos netos = SOLO ventas de fruta ────────────────────────
-        # Exportación ya guardada al 50%, Nacional al 100% — NO incluye
-        # préstamos recibidos (Financiamiento) ni anticipos
-        CATEGORIAS_VENTA = [
-            "🥑 Venta Cosecha (Exportación)",
-            "🥑 Venta Cosecha (Nacional)",
-            "🗑️ Venta Descarte/Merma",
-        ]
-        mis_ingresos = df_mov[
+        # Exportación: 50% es nuestro | Nacional y Descarte: 100% nuestro
+        # Se aplica el factor aquí para corregir registros históricos
+        df_ventas = df_mov[
             (df_mov['tipo'] == 'Ingreso') &
-            (df_mov['categoria'].isin(CATEGORIAS_VENTA))
-        ]['Monto'].sum()
+            (df_mov['categoria'].str.contains("Venta Cosecha|Venta Descarte", case=False, na=False))
+        ].copy()
+
+        def _mi_parte(row):
+            if "Exportación" in str(row['categoria']):
+                return row['Monto'] * 0.50
+            return row['Monto']
+
+        df_ventas['MiParte'] = df_ventas.apply(_mi_parte, axis=1)
+        mis_ingresos = df_ventas['MiParte'].sum()
+
+        # Para mostrar detalle
+        exportacion_bruta = df_ventas[df_ventas['categoria'].str.contains("Exportación", na=False)]['Monto'].sum()
+        exportacion_neta  = exportacion_bruta * 0.50
+        nacional_total    = df_ventas[~df_ventas['categoria'].str.contains("Exportación", na=False)]['MiParte'].sum()
 
         # ── Gastos del huerto desde último corte ──────────────────────────────
         df_gastos_cosecha = df_mov[
@@ -123,6 +131,10 @@ def show_reports(ocultar_personal: bool = False):
                 "💰 Mis Ingresos Netos",
                 format_currency(mis_ingresos),
                 help="Tu parte real — exportación al 50%, nacional al 100%"
+            )
+            st.caption(
+                f"🌍 Exportación: {format_currency(exportacion_bruta)} × 50% = **{format_currency(exportacion_neta)}**  \n"
+                f"🇲🇽 Nacional / Descarte: **{format_currency(nacional_total)}**"
             )
 
         # Utilidad operativa
