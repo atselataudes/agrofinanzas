@@ -9,16 +9,137 @@ from src.utils.helpers import cents_to_float, format_currency
 from src.utils.constants import CATEGORIAS_PERSONALES
 from config import Config
 
-def show_reports():
+def show_reports(ocultar_personal: bool = False):
     st.markdown("### 📊 Reportes Gerenciales")
-    t1, t2, t3, t4, t5, t6 = st.tabs(["Negocio", "Personal", "Deudas", "Lotes", "🎫 Tickets", "💾 Exportar"])
+    _tabs_base = ["💼 Balance General", "Negocio", "Deudas", "Lotes", "🎫 Tickets", "💾 Exportar"]
+    if not ocultar_personal:
+        _tabs_base.insert(2, "Personal")
+    _tabs = _tabs_base
+    _tab_objs = st.tabs(_tabs)
     repo = Repository()
-    
+
     # Fetch all data once for processing
     df_all = repo.get_movements_df()
-    
-    # --- TAB 1: NEGOCIO ---
-    with t1:
+
+    # Mapeo dinámico de tabs según modo
+    def _tab(nombre):
+        idx = _tabs.index(nombre) if nombre in _tabs else None
+        return _tab_objs[idx] if idx is not None else None
+
+    # --- TAB BALANCE GENERAL ---
+    with _tab("💼 Balance General"):
+        st.markdown("#### 💼 Balance General")
+
+        df_mov = df_all.copy()
+        df_mov['Monto'] = df_mov['monto_centavos'].apply(cents_to_float)
+        df_mov['fecha_dt'] = pd.to_datetime(df_mov['fecha'], errors='coerce')
+
+        # ── Fecha de último corte ─────────────────────────────────────────────
+        df_cortes = df_mov[df_mov['categoria'].str.contains("Venta Cosecha|Corte", case=False, na=False)]
+        if not df_cortes.empty:
+            ultima_cosecha = df_cortes['fecha_dt'].max().date()
+        else:
+            ultima_cosecha = date(2000, 1, 1)
+
+        # ── Mis ingresos netos (ya descontado el 50% en exportación al guardar) ──
+        mis_ingresos = df_mov[
+            (df_mov['tipo'] == 'Ingreso') &
+            (~df_mov['categoria'].isin(['Financiamiento']))
+        ]['Monto'].sum()
+
+        # ── Gastos desde última cosecha ────────────────────────────────────────
+        df_gastos_cosecha = df_mov[
+            (df_mov['tipo'] == 'Gasto') &
+            (~df_mov['categoria'].isin(['Pago Deuda'] + CATEGORIAS_PERSONALES)) &
+            (df_mov['fecha_dt'].dt.date >= ultima_cosecha)
+        ]
+        gastos_desde_cosecha = df_gastos_cosecha['Monto'].sum()
+
+        # ── Deuda total vigente ────────────────────────────────────────────────
+        df_loans = repo.get_dataframe("SELECT * FROM fin_prestamos WHERE estado='Activo'")
+        deuda_total = 0.0
+        deuda_rows = []
+        if not df_loans.empty:
+            df_terc = repo.get_dataframe("SELECT id, nombre FROM cat_terceros")
+            terc_map = dict(zip(df_terc['id'], df_terc['nombre'])) if not df_terc.empty else {}
+            for _, r in df_loans.iterrows():
+                cap = cents_to_float(r['monto_capital_centavos'])
+                pag = cents_to_float(r['monto_pagado_centavos'])
+                saldo = cap - pag
+                dias = (date.today() - date.fromisoformat(r['fecha_inicio'])).days
+                inte = saldo * (r['tasa_interes_anual'] / 100) * (dias / 365) if dias > 0 else 0
+                total_con_interes = saldo + inte
+                deuda_total += total_con_interes
+                deuda_rows.append({
+                    "Acreedor": terc_map.get(r['tercero_id'], '—'),
+                    "Saldo": saldo,
+                    "Intereses": inte,
+                    "Total": total_con_interes,
+                })
+
+        # ── Utilidad ──────────────────────────────────────────────────────────
+        utilidad = mis_ingresos - gastos_desde_cosecha - deuda_total
+
+        # ── VISTA PRINCIPAL ───────────────────────────────────────────────────
+        st.caption(f"Gastos calculados desde el último corte registrado: **{ultima_cosecha.strftime('%d/%m/%Y')}**")
+        st.divider()
+
+        m1, m2 = st.columns(2)
+        with m1.container(border=True):
+            st.metric(
+                "💰 Mis Ingresos Netos",
+                format_currency(mis_ingresos),
+                help="Monto que te corresponde — exportación ya va al 50%, nacional al 100%"
+            )
+        with m2.container(border=True):
+            st.metric(
+                "🏦 Deuda Total Vigente",
+                format_currency(deuda_total),
+                help="Saldo de todos los préstamos activos con intereses acumulados"
+            )
+
+        g1, g2 = st.columns(2)
+        with g1.container(border=True):
+            st.metric(
+                "💸 Gastos desde Último Corte",
+                format_currency(gastos_desde_cosecha),
+                help=f"Gastos del huerto acumulados desde {ultima_cosecha.strftime('%d/%m/%Y')}"
+            )
+        with g2.container(border=True):
+            color = "normal" if utilidad >= 0 else "inverse"
+            st.metric(
+                "📈 Utilidad",
+                format_currency(utilidad),
+                delta="Ingresos − Gastos − Deuda",
+                delta_color=color
+            )
+
+        st.divider()
+
+        if utilidad >= 0:
+            st.success(f"✅ Utilidad positiva de **{format_currency(utilidad)}**")
+        else:
+            st.error(f"🔴 Déficit de **{format_currency(abs(utilidad))}** — deuda + gastos superan los ingresos")
+
+        # ── Desglose de deuda por acreedor ────────────────────────────────────
+        if deuda_rows:
+            with st.expander("📋 Detalle de deuda por acreedor", expanded=False):
+                df_deuda_det = pd.DataFrame(deuda_rows)
+                df_deuda_det['Saldo'] = df_deuda_det['Saldo'].apply(format_currency)
+                df_deuda_det['Intereses'] = df_deuda_det['Intereses'].apply(format_currency)
+                df_deuda_det['Total'] = df_deuda_det['Total'].apply(format_currency)
+                st.dataframe(df_deuda_det, use_container_width=True, hide_index=True)
+
+        # ── Detalle de gastos desde cosecha ───────────────────────────────────
+        if not df_gastos_cosecha.empty:
+            with st.expander("📋 Detalle de gastos desde último corte", expanded=False):
+                g_det = df_gastos_cosecha.groupby('categoria')['Monto'].sum().sort_values(ascending=False).reset_index()
+                g_det['Monto'] = g_det['Monto'].apply(format_currency)
+                g_det.columns = ['Categoría', 'Total']
+                st.dataframe(g_det, use_container_width=True, hide_index=True)
+
+    # --- TAB NEGOCIO ---
+    with _tab("Negocio"):
         st.info("ℹ️ Reporte EXCLUSIVO del Negocio (Sin gastos personales ni deudas).")
         df_neg = df_all[~df_all['categoria'].isin(['Financiamiento', 'Pago Deuda'] + CATEGORIAS_PERSONALES)].copy()
         
@@ -54,8 +175,9 @@ def show_reports():
                     st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
-    # --- TAB 2: PERSONAL ---
-    with t2:
+    # --- TAB PERSONAL (solo admin) ---
+    if not ocultar_personal:
+     with _tab("Personal"):
         df_per = df_all[df_all['categoria'].isin(CATEGORIAS_PERSONALES)].copy()
         if not df_per.empty:
             df_per['Monto'] = df_per['monto_centavos'].apply(cents_to_float)
@@ -83,8 +205,8 @@ def show_reports():
                 st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
-    # --- TAB 3: DEUDAS ---
-    with t3:
+    # --- TAB DEUDAS ---
+    with _tab("Deudas"):
         df_loans = repo.get_active_loans_df()
         if not df_loans.empty:
             data = []
@@ -122,8 +244,8 @@ def show_reports():
                 st.altair_chart(pie, use_container_width=True)
         else: st.success("Sin deudas.")
 
-    # --- TAB 4: LOTES ---
-    with t4:
+    # --- TAB LOTES ---
+    with _tab("Lotes"):
         df_l = repo.get_lots_df()
         res = []
         df_op = df_all[(df_all['tipo']=='Gasto') & (~df_all['categoria'].isin(['Pago Deuda']+CATEGORIAS_PERSONALES))]
@@ -160,8 +282,8 @@ def show_reports():
                     st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
-    # --- TAB 5: TICKETS ---
-    with t5:
+    # --- TAB TICKETS ---
+    with _tab("🎫 Tickets"):
         st.markdown("### 🎫 Historial de Tickets Registrados")
         df_tickets = repo.get_ticket_folios_df()
         if not df_tickets.empty:
@@ -190,8 +312,8 @@ def show_reports():
         else:
             st.info("Aún no hay tickets registrados desde la báscula.")
 
-    # --- TAB 6: EXPORTAR ---
-    with t6:
+    # --- TAB EXPORTAR ---
+    with _tab("💾 Exportar"):
         st.header("💾 Descargar Base de Datos")
         if not df_all.empty:
             df_export = df_all.copy()
