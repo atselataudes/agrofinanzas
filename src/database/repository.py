@@ -42,7 +42,7 @@ class Repository:
     def get_all_lots(self) -> List[Dict[str, Any]]:
         return self._execute_query("SELECT * FROM cat_lotes", fetch_all=True)
 
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=60, show_spinner=False)
     def get_lots_df(_self) -> pd.DataFrame:
         return _self.get_dataframe("SELECT * FROM cat_lotes")
 
@@ -56,22 +56,24 @@ class Repository:
     def get_all_third_parties(self) -> List[Dict[str, Any]]:
         return self._execute_query("SELECT * FROM cat_terceros", fetch_all=True)
 
-    @st.cache_data(ttl=300, show_spinner=False)
+    @st.cache_data(ttl=60, show_spinner=False)
     def get_third_parties_df(_self) -> pd.DataFrame:
         return _self.get_dataframe("SELECT * FROM cat_terceros")
 
     # --- MOVIMIENTOS (MOVEMENTS) ---
     def create_movement(self, mov: schemas.MovementCreate):
         query = """
-            INSERT INTO fin_movimientos 
-            (fecha, tipo, categoria, concepto, cantidad, monto_centavos, tercero_id, lote_id, comprobante_path) 
+            INSERT INTO fin_movimientos
+            (fecha, tipo, categoria, concepto, cantidad, monto_centavos, tercero_id, lote_id, comprobante_path)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         params = (
-            mov.fecha, mov.tipo, mov.categoria, mov.concepto, mov.cantidad, 
+            mov.fecha, mov.tipo, mov.categoria, mov.concepto, mov.cantidad,
             mov.monto_centavos, mov.tercero_id, mov.lote_id, mov.comprobante_path
         )
-        return self._execute_query(query, params, commit=True)
+        result = self._execute_query(query, params, commit=True)
+        st.cache_data.clear()
+        return result
 
     def get_movements_df(self, limit: int = None) -> pd.DataFrame:
         query = """
@@ -100,12 +102,14 @@ class Repository:
              tercero_id, lote_id, move_id),
             commit=True
         )
+        st.cache_data.clear()
 
     def update_movement_evidence(self, move_id: int, path: str):
         self._execute_query("UPDATE fin_movimientos SET comprobante_path=? WHERE id=?", (path, move_id), commit=True)
 
     def delete_movement(self, move_id: int):
         self._execute_query("DELETE FROM fin_movimientos WHERE id=?", (move_id,), commit=True)
+        st.cache_data.clear()
 
     def get_movement_by_id(self, move_id: int):
         return self._execute_query("SELECT * FROM fin_movimientos WHERE id=?", (move_id,), fetch_one=True)
@@ -122,7 +126,9 @@ class Repository:
             loan.tercero_id, loan.fecha_inicio, loan.fecha_vencimiento, 
             loan.monto_capital_centavos, loan.tasa_interes_anual, loan.notas
         )
-        return self._execute_query(query, params, commit=True)
+        result = self._execute_query(query, params, commit=True)
+        st.cache_data.clear()
+        return result
 
     def get_active_loans_df(self) -> pd.DataFrame:
         query = """
@@ -145,7 +151,9 @@ class Repository:
         )
         if loan and loan['monto_pagado_centavos'] >= loan['monto_capital_centavos']:
             self._execute_query("UPDATE fin_prestamos SET estado='Pagado' WHERE id=?", (loan_id,), commit=True)
+            st.cache_data.clear()
             return True
+        st.cache_data.clear()
         return False
 
     def update_loan_balance_manually(self, loan_id: int, capital_cents: int, paid_cents: int):
@@ -154,18 +162,20 @@ class Repository:
             (capital_cents, paid_cents, loan_id),
             commit=True
         )
-        # Re-check state
         loan = self._execute_query("SELECT monto_capital_centavos, monto_pagado_centavos FROM fin_prestamos WHERE id=?", (loan_id,), fetch_one=True)
         if loan and loan['monto_pagado_centavos'] >= loan['monto_capital_centavos']:
             self._execute_query("UPDATE fin_prestamos SET estado='Pagado' WHERE id=?", (loan_id,), commit=True)
         else:
             self._execute_query("UPDATE fin_prestamos SET estado='Activo' WHERE id=?", (loan_id,), commit=True)
+        st.cache_data.clear()
 
     def delete_loan(self, loan_id: int):
         self._execute_query("UPDATE fin_prestamos SET estado = 'Eliminado' WHERE id = ?", (loan_id,), commit=True)
+        st.cache_data.clear()
 
     def restore_loan(self, loan_id: int):
         self._execute_query("UPDATE fin_prestamos SET estado = 'Activo' WHERE id = ?", (loan_id,), commit=True)
+        st.cache_data.clear()
 
     # --- INVENTORY ---
     def create_product(self, prod: schemas.ProductCreate):
