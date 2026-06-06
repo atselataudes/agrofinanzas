@@ -62,11 +62,10 @@ def show_reports(ocultar_personal: bool = False):
         exportacion_neta  = exportacion_bruta * 0.50
         nacional_total    = df_ventas[~df_ventas['categoria'].str.contains("Exportación", na=False)]['MiParte'].sum()
 
-        # ── Gastos del huerto desde último corte ──────────────────────────────
+        # ── Todos los gastos del huerto (sin deuda ni personal) ───────────────
         df_gastos_cosecha = df_mov[
             (df_mov['tipo'] == 'Gasto') &
-            (~df_mov['categoria'].isin(['Pago Deuda'] + CATEGORIAS_PERSONALES)) &
-            (df_mov['fecha_dt'].dt.date >= ultima_cosecha)
+            (~df_mov['categoria'].isin(['Pago Deuda'] + CATEGORIAS_PERSONALES))
         ]
         gastos_desde_cosecha = df_gastos_cosecha['Monto'].sum()
 
@@ -159,11 +158,11 @@ def show_reports(ocultar_personal: bool = False):
         with c3.container(border=True):
             pct_gas = (gastos_desde_cosecha / mis_ingresos * 100) if mis_ingresos > 0 else 0
             st.metric(
-                "💸 Gastos desde Último Corte",
+                "💸 Gastos del Huerto",
                 format_currency(gastos_desde_cosecha),
                 delta=f"{pct_gas:.1f}% de tus ingresos",
                 delta_color="normal" if pct_gas <= 50 else "inverse",
-                help=f"Gastos del huerto desde {ultima_cosecha.strftime('%d/%m/%Y')}"
+                help="Total de gastos del huerto acumulados (excluye deuda y gastos personales)"
             )
             with st.expander("Ver por categoría", expanded=False):
                 if not df_gastos_cosecha.empty:
@@ -303,12 +302,24 @@ def show_reports(ocultar_personal: bool = False):
         df_op = df_all[(df_all['tipo']=='Gasto') & (~df_all['categoria'].isin(['Pago Deuda']+CATEGORIAS_PERSONALES))]
         g_gen = cents_to_float(df_op[df_op['lote_id'].isnull()]['monto_centavos'].sum())
         prorr = g_gen / len(df_l) if not df_l.empty else 0
-        
-        for i,r in df_l.iterrows():
-            df_this = df_all[df_all['lote_id']==r['id']]
+
+        def _ingreso_neto_lote(row):
+            """Aplica 50% exportación + descuenta 10% gerente."""
+            monto = cents_to_float(row['monto_centavos'])
+            if "Exportación" in str(row.get('categoria', '')):
+                monto = monto * 0.50
+            return monto * 0.90  # −10% gerente de operaciones
+
+        for i, r in df_l.iterrows():
+            df_this = df_all[df_all['lote_id'] == r['id']]
             g = cents_to_float(df_this[df_this['tipo']=='Gasto']['monto_centavos'].sum()) + prorr
-            i_amount = cents_to_float(df_this[df_this['tipo']=='Ingreso']['monto_centavos'].sum())
-            res.append({"Huerto":r['nombre'], "Utilidad": i_amount - g})
+            # Ingresos netos: 50% exportación, 100% nacional, −10% gerente
+            df_ing = df_this[
+                (df_this['tipo'] == 'Ingreso') &
+                (df_this['categoria'].str.contains("Venta Cosecha|Venta Descarte", case=False, na=False))
+            ]
+            i_amount = df_ing.apply(_ingreso_neto_lote, axis=1).sum() if not df_ing.empty else 0.0
+            res.append({"Huerto": r['nombre'], "Utilidad": i_amount - g})
         
         dfr = pd.DataFrame(res)
         if not dfr.empty:
