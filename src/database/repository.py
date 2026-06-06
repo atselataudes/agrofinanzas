@@ -88,6 +88,19 @@ class Repository:
             return self.get_dataframe(query, (limit,))
         return self.get_dataframe(query)
     
+    def update_movement(self, move_id: int, fecha: str, tipo: str, categoria: str,
+                        concepto: str, monto_centavos: int, cantidad: float,
+                        tercero_id: int = None, lote_id: int = None):
+        self._execute_query(
+            """UPDATE fin_movimientos SET
+               fecha=?, tipo=?, categoria=?, concepto=?, monto_centavos=?, cantidad=?,
+               tercero_id=?, lote_id=?
+               WHERE id=?""",
+            (fecha, tipo, categoria, concepto, monto_centavos, cantidad,
+             tercero_id, lote_id, move_id),
+            commit=True
+        )
+
     def update_movement_evidence(self, move_id: int, path: str):
         self._execute_query("UPDATE fin_movimientos SET comprobante_path=? WHERE id=?", (path, move_id), commit=True)
 

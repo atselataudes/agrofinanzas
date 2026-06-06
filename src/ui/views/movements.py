@@ -7,7 +7,7 @@ from src.models.schemas import MovementCreate
 from src.utils.helpers import float_to_cents, cents_to_float, format_currency, save_uploaded_file
 from src.utils.constants import CATALOGO_OPS
 
-def show_movements():
+def show_movements(ocultar_personal: bool = False):
     st.markdown("### Gestión de Operaciones")
 
     if st.session_state.pop("mov_saved_ok", False):
@@ -35,7 +35,8 @@ def show_movements():
         with st.container(border=True):
             c_f, c_t, c_c = st.columns([1, 1, 2])
             fecha = c_f.date_input("Fecha Operación", value=date.today())
-            tipo_ui = c_t.radio("Tipo", ["Ingreso", "Gasto Huerto", "Gasto Personal"])
+            _tipos = ["Ingreso", "Gasto Huerto"] if ocultar_personal else ["Ingreso", "Gasto Huerto", "Gasto Personal"]
+            tipo_ui = c_t.radio("Tipo", _tipos)
             categoria = c_c.selectbox("Categoría", list(CATALOGO_OPS[tipo_ui].keys()))
             
             reglas = CATALOGO_OPS[tipo_ui][categoria]
@@ -131,6 +132,85 @@ def show_movements():
             
         st.write("---")
         st.subheader("🛠️ Herramientas de Gestión")
+
+        # ── EDITAR MOVIMIENTO ─────────────────────────────────────────────────
+        with st.expander("✏️ Editar movimiento", expanded=False):
+            id_edit = st.number_input("ID del movimiento a editar", min_value=1, key="id_edit")
+            pwd_edit = st.text_input("Contraseña de administrador", type="password", key="pwd_edit")
+
+            if st.button("Cargar movimiento", key="btn_cargar_edit"):
+                # Validar contraseña
+                from src.database.repository import Repository as _R
+                _r = _R()
+                clave = _r.get_setting("password_admin", "admin")
+                if pwd_edit != clave:
+                    st.error("Contraseña incorrecta.")
+                else:
+                    mov = repo.get_movement_by_id(id_edit)
+                    if mov:
+                        st.session_state["edit_mov"] = mov
+                        st.rerun()
+                    else:
+                        st.error(f"No existe el movimiento #{id_edit}.")
+
+            if "edit_mov" in st.session_state:
+                m = st.session_state["edit_mov"]
+                st.success(f"Editando movimiento #{m['id']}")
+                with st.container(border=True):
+                    ec1, ec2, ec3 = st.columns([1, 1, 2])
+                    from datetime import datetime
+                    try:
+                        fecha_val = datetime.strptime(m["fecha"], "%Y-%m-%d").date()
+                    except Exception:
+                        from datetime import date as _date
+                        fecha_val = _date.today()
+
+                    e_fecha = ec1.date_input("Fecha", value=fecha_val, key="e_fecha")
+                    tipo_opts = ["Ingreso", "Gasto Huerto", "Gasto Personal"]
+                    tipo_idx = tipo_opts.index(m["tipo"]) if m["tipo"] in tipo_opts else 1
+                    e_tipo_ui = ec2.radio("Tipo", tipo_opts, index=tipo_idx, key="e_tipo")
+
+                    cats = list(CATALOGO_OPS[e_tipo_ui].keys())
+                    cat_idx = cats.index(m["categoria"]) if m["categoria"] in cats else 0
+                    e_cat = ec3.selectbox("Categoría", cats, index=cat_idx, key="e_cat")
+
+                    e_concepto = st.text_input("Concepto / Notas", value=m.get("concepto") or "", key="e_concepto")
+                    em1, em2 = st.columns(2)
+                    e_monto = em1.number_input(
+                        "Monto ($)", min_value=0.0,
+                        value=cents_to_float(m["monto_centavos"]),
+                        key="e_monto"
+                    )
+                    e_cant = em2.number_input(
+                        "Cantidad (kg/L)", min_value=0.0,
+                        value=float(m.get("cantidad") or 0),
+                        key="e_cant"
+                    )
+
+                    col_g, col_c = st.columns(2)
+                    if col_g.button("💾 Guardar cambios", type="primary", key="btn_edit_save"):
+                        try:
+                            tipo_db = "Ingreso" if e_tipo_ui == "Ingreso" else "Gasto"
+                            repo.update_movement(
+                                move_id=m["id"],
+                                fecha=str(e_fecha),
+                                tipo=tipo_db,
+                                categoria=e_cat,
+                                concepto=e_concepto,
+                                monto_centavos=float_to_cents(e_monto),
+                                cantidad=e_cant,
+                                tercero_id=m.get("tercero_id"),
+                                lote_id=m.get("lote_id"),
+                            )
+                            st.session_state.pop("edit_mov", None)
+                            st.success("✅ Movimiento actualizado.")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Error: {e}")
+                    if col_c.button("Cancelar", key="btn_edit_cancel"):
+                        st.session_state.pop("edit_mov", None)
+                        st.rerun()
+
         c_adj, c_ver, c_del = st.columns(3)
         
         # 1. ADJUNTAR
