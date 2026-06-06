@@ -51,7 +51,11 @@ def show_reports(ocultar_personal: bool = False):
             return row['Monto']
 
         df_ventas['MiParte'] = df_ventas.apply(_mi_parte, axis=1)
-        mis_ingresos = df_ventas['MiParte'].sum()
+        subtotal_ventas = df_ventas['MiParte'].sum()
+
+        # 10% al Gerente de Operaciones sobre el subtotal
+        comision_gerente = subtotal_ventas * 0.10
+        mis_ingresos     = subtotal_ventas - comision_gerente
 
         # Para mostrar detalle
         exportacion_bruta = df_ventas[df_ventas['categoria'].str.contains("Exportación", na=False)]['Monto'].sum()
@@ -134,7 +138,9 @@ def show_reports(ocultar_personal: bool = False):
             )
             st.caption(
                 f"🌍 Exportación: {format_currency(exportacion_bruta)} × 50% = **{format_currency(exportacion_neta)}**  \n"
-                f"🇲🇽 Nacional / Descarte: **{format_currency(nacional_total)}**"
+                f"🇲🇽 Nacional / Descarte: **{format_currency(nacional_total)}**  \n"
+                f"👷 Gerente de operaciones (10%): −**{format_currency(comision_gerente)}**  \n"
+                f"✅ Tu ingreso neto: **{format_currency(mis_ingresos)}**"
             )
 
         # Utilidad operativa
