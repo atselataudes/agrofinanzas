@@ -28,7 +28,6 @@ def show_reports(ocultar_personal: bool = False):
 
     # --- TAB BALANCE GENERAL ---
     with _tab("💼 Balance General"):
-        st.markdown("#### 💼 Balance General")
 
         df_mov = df_all.copy()
         df_mov['Monto'] = df_mov['monto_centavos'].apply(cents_to_float)
@@ -36,18 +35,15 @@ def show_reports(ocultar_personal: bool = False):
 
         # ── Fecha de último corte ─────────────────────────────────────────────
         df_cortes = df_mov[df_mov['categoria'].str.contains("Venta Cosecha|Corte", case=False, na=False)]
-        if not df_cortes.empty:
-            ultima_cosecha = df_cortes['fecha_dt'].max().date()
-        else:
-            ultima_cosecha = date(2000, 1, 1)
+        ultima_cosecha = df_cortes['fecha_dt'].max().date() if not df_cortes.empty else date(2000, 1, 1)
 
-        # ── Mis ingresos netos (ya descontado el 50% en exportación al guardar) ──
+        # ── Mis ingresos netos ────────────────────────────────────────────────
         mis_ingresos = df_mov[
             (df_mov['tipo'] == 'Ingreso') &
             (~df_mov['categoria'].isin(['Financiamiento']))
         ]['Monto'].sum()
 
-        # ── Gastos desde última cosecha ────────────────────────────────────────
+        # ── Gastos del huerto desde último corte ──────────────────────────────
         df_gastos_cosecha = df_mov[
             (df_mov['tipo'] == 'Gasto') &
             (~df_mov['categoria'].isin(['Pago Deuda'] + CATEGORIAS_PERSONALES)) &
@@ -63,11 +59,11 @@ def show_reports(ocultar_personal: bool = False):
             df_terc = repo.get_dataframe("SELECT id, nombre FROM cat_terceros")
             terc_map = dict(zip(df_terc['id'], df_terc['nombre'])) if not df_terc.empty else {}
             for _, r in df_loans.iterrows():
-                cap = cents_to_float(r['monto_capital_centavos'])
-                pag = cents_to_float(r['monto_pagado_centavos'])
+                cap  = cents_to_float(r['monto_capital_centavos'])
+                pag  = cents_to_float(r['monto_pagado_centavos'])
                 saldo = cap - pag
-                dias = (date.today() - date.fromisoformat(r['fecha_inicio'])).days
-                inte = saldo * (r['tasa_interes_anual'] / 100) * (dias / 365) if dias > 0 else 0
+                dias  = (date.today() - date.fromisoformat(r['fecha_inicio'])).days
+                inte  = saldo * (r['tasa_interes_anual'] / 100) * (dias / 365) if dias > 0 else 0
                 total_con_interes = saldo + inte
                 deuda_total += total_con_interes
                 deuda_rows.append({
@@ -77,66 +73,97 @@ def show_reports(ocultar_personal: bool = False):
                     "Total": total_con_interes,
                 })
 
-        # ── Utilidad ──────────────────────────────────────────────────────────
-        utilidad = mis_ingresos - gastos_desde_cosecha - deuda_total
+        # ── Indicadores clave ─────────────────────────────────────────────────
+        utilidad_operativa = mis_ingresos - gastos_desde_cosecha   # antes de deuda
+        posicion_neta      = mis_ingresos - gastos_desde_cosecha - deuda_total  # tras pagar todo
+        pct_deuda          = (deuda_total / mis_ingresos * 100) if mis_ingresos > 0 else 0
 
-        # ── VISTA PRINCIPAL ───────────────────────────────────────────────────
-        st.caption(f"Gastos calculados desde el último corte registrado: **{ultima_cosecha.strftime('%d/%m/%Y')}**")
+        # ══════════════════════════════════════════════════════════════════════
+        # INDICADOR PRINCIPAL — respuesta directa a la pregunta clave
+        # ══════════════════════════════════════════════════════════════════════
+        st.markdown("### ¿Me alcanza para pagar todo?")
+        if posicion_neta >= 0:
+            st.success(
+                f"✅ **Sí te alcanza.** Si pagas toda tu deuda hoy, "
+                f"te quedarían **{format_currency(posicion_neta)}**"
+            )
+        else:
+            st.error(
+                f"🔴 **No te alcanza todavía.** Te faltan **{format_currency(abs(posicion_neta))}** "
+                f"para cubrir toda la deuda con los ingresos actuales."
+            )
+
+        # Barra de compromiso de deuda
+        pct_display = min(pct_deuda, 100)
+        color_barra = "🟢" if pct_deuda <= 60 else ("🟡" if pct_deuda <= 90 else "🔴")
+        st.caption(
+            f"{color_barra} Tu deuda representa el **{pct_deuda:.0f}%** de tus ingresos — "
+            f"{'nivel manejable' if pct_deuda <= 60 else ('nivel de alerta' if pct_deuda <= 90 else 'nivel crítico')}"
+        )
+        st.progress(int(pct_display) / 100)
+
         st.divider()
 
-        m1, m2 = st.columns(2)
-        with m1.container(border=True):
+        # ══════════════════════════════════════════════════════════════════════
+        # INDICADORES DE SOPORTE
+        # ══════════════════════════════════════════════════════════════════════
+        st.markdown("##### Detalle")
+        c1, c2 = st.columns(2)
+
+        # Ingresos
+        with c1.container(border=True):
             st.metric(
                 "💰 Mis Ingresos Netos",
                 format_currency(mis_ingresos),
-                help="Monto que te corresponde — exportación ya va al 50%, nacional al 100%"
-            )
-        with m2.container(border=True):
-            st.metric(
-                "🏦 Deuda Total Vigente",
-                format_currency(deuda_total),
-                help="Saldo de todos los préstamos activos con intereses acumulados"
+                help="Tu parte real — exportación al 50%, nacional al 100%"
             )
 
-        g1, g2 = st.columns(2)
-        with g1.container(border=True):
+        # Utilidad operativa
+        with c2.container(border=True):
+            st.metric(
+                "📈 Utilidad Operativa",
+                format_currency(utilidad_operativa),
+                delta=f"{(utilidad_operativa/mis_ingresos*100):.1f}% margen" if mis_ingresos > 0 else None,
+                delta_color="normal" if utilidad_operativa >= 0 else "inverse",
+                help="Ingresos − Gastos del huerto (sin contar deuda)"
+            )
+
+        c3, c4 = st.columns(2)
+
+        # Gastos desde corte
+        with c3.container(border=True):
+            pct_gas = (gastos_desde_cosecha / mis_ingresos * 100) if mis_ingresos > 0 else 0
             st.metric(
                 "💸 Gastos desde Último Corte",
                 format_currency(gastos_desde_cosecha),
-                help=f"Gastos del huerto acumulados desde {ultima_cosecha.strftime('%d/%m/%Y')}"
+                delta=f"{pct_gas:.1f}% de tus ingresos",
+                delta_color="normal" if pct_gas <= 50 else "inverse",
+                help=f"Gastos del huerto desde {ultima_cosecha.strftime('%d/%m/%Y')}"
             )
-        with g2.container(border=True):
-            color = "normal" if utilidad >= 0 else "inverse"
+            with st.expander("Ver por categoría", expanded=False):
+                if not df_gastos_cosecha.empty:
+                    g_det = df_gastos_cosecha.groupby('categoria')['Monto'].sum()\
+                        .sort_values(ascending=False).reset_index()
+                    g_det.columns = ['Categoría', 'Total']
+                    g_det['Total'] = g_det['Total'].apply(format_currency)
+                    st.dataframe(g_det, use_container_width=True, hide_index=True)
+
+        # Deuda
+        with c4.container(border=True):
             st.metric(
-                "📈 Utilidad",
-                format_currency(utilidad),
-                delta="Ingresos − Gastos − Deuda",
-                delta_color=color
+                "🏦 Deuda Total Vigente",
+                format_currency(deuda_total),
+                delta=f"{pct_deuda:.1f}% de tus ingresos",
+                delta_color="inverse",
+                help="Saldo de todos los préstamos activos con intereses acumulados"
             )
-
-        st.divider()
-
-        if utilidad >= 0:
-            st.success(f"✅ Utilidad positiva de **{format_currency(utilidad)}**")
-        else:
-            st.error(f"🔴 Déficit de **{format_currency(abs(utilidad))}** — deuda + gastos superan los ingresos")
-
-        # ── Desglose de deuda por acreedor ────────────────────────────────────
-        if deuda_rows:
-            with st.expander("📋 Detalle de deuda por acreedor", expanded=False):
-                df_deuda_det = pd.DataFrame(deuda_rows)
-                df_deuda_det['Saldo'] = df_deuda_det['Saldo'].apply(format_currency)
-                df_deuda_det['Intereses'] = df_deuda_det['Intereses'].apply(format_currency)
-                df_deuda_det['Total'] = df_deuda_det['Total'].apply(format_currency)
-                st.dataframe(df_deuda_det, use_container_width=True, hide_index=True)
-
-        # ── Detalle de gastos desde cosecha ───────────────────────────────────
-        if not df_gastos_cosecha.empty:
-            with st.expander("📋 Detalle de gastos desde último corte", expanded=False):
-                g_det = df_gastos_cosecha.groupby('categoria')['Monto'].sum().sort_values(ascending=False).reset_index()
-                g_det['Monto'] = g_det['Monto'].apply(format_currency)
-                g_det.columns = ['Categoría', 'Total']
-                st.dataframe(g_det, use_container_width=True, hide_index=True)
+            with st.expander("Ver por acreedor", expanded=False):
+                if deuda_rows:
+                    df_dd = pd.DataFrame(deuda_rows)
+                    df_dd['Saldo']     = df_dd['Saldo'].apply(format_currency)
+                    df_dd['Intereses'] = df_dd['Intereses'].apply(format_currency)
+                    df_dd['Total']     = df_dd['Total'].apply(format_currency)
+                    st.dataframe(df_dd, use_container_width=True, hide_index=True)
 
     # --- TAB NEGOCIO ---
     with _tab("Negocio"):
