@@ -15,6 +15,7 @@ from src.ui.views.asistente import show_asistente
 from src.ui.views.bitacora import show_bitacora
 from src.ui.views.vista_encargado import show_encargado_app
 from src.ui.views.vista_inversionista import show_inversionista_app
+from src.ui.views.cuentas_cobrar import show_cuentas_cobrar
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -88,6 +89,7 @@ if st.session_state.get("rol_activo") == "admin":
             "📒 Diario",
             "🥑 Corte",
             "📝 Movimientos",
+            "💳 Por Cobrar",
             "📦 Inventario",
             "📂 Catálogos",
             "🏦 Créditos",
@@ -108,6 +110,7 @@ if st.session_state.get("rol_activo") == "admin":
     elif menu == "📒 Diario":        show_journal()
     elif menu == "🥑 Corte":         show_harvest()
     elif menu == "📝 Movimientos":   show_movements()
+    elif menu == "💳 Por Cobrar":    show_cuentas_cobrar()
     elif menu == "📦 Inventario":    show_inventory()
     elif menu == "📂 Catálogos":     show_catalogs()
     elif menu == "🏦 Créditos":      show_credits()

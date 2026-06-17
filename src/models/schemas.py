@@ -47,6 +47,9 @@ class MovementBase:
     tercero_id: Optional[int] = None
     lote_id: Optional[int] = None
     comprobante_path: Optional[str] = None
+    es_credito: int = 0
+    fecha_cobro: Optional[str] = None
+    cobrado: int = 0
 
 @dataclass
 class MovementCreate(MovementBase):

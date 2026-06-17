@@ -190,6 +190,19 @@ def show_harvest():
         avg_price = (total_venta_bruta / total_kilos) if total_kilos > 0 else 0
         c_res4.metric("Precio Prom.", format_currency(avg_price))
         
+        st.divider()
+        # ── Condiciones de pago ──────────────────────────────────────────────
+        cp_a, cp_b = st.columns([2, 1])
+        es_credito = cp_a.toggle("💳 Venta a crédito (pago diferido)", value=True, key="harvest_credito")
+        dias_credito = cp_b.number_input("Días crédito", min_value=1, max_value=90,
+                                         value=22, key="harvest_dias_credito") if es_credito else 0
+        if es_credito:
+            from datetime import timedelta
+            fecha_cobro = fecha + timedelta(days=int(dias_credito))
+            st.caption(f"📅 Fecha estimada de cobro: **{fecha_cobro.strftime('%d/%m/%Y')}**")
+        else:
+            fecha_cobro = None
+
         if st.button("💾 Guardar Corte", type="primary"):
             if total_monto > 0:
                 try:
@@ -215,6 +228,8 @@ def show_harvest():
                         details=details_ajustados,
                         comprobante_path=ticket_path,
                         folio=ticket_folio,
+                        es_credito=1 if es_credito else 0,
+                        fecha_cobro=str(fecha_cobro) if fecha_cobro else None,
                     )
 
                     # Registrar folio con todos los datos para historial

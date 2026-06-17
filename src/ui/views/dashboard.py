@@ -94,11 +94,12 @@ def show_dashboard():
 
     if not df_trend_g.empty:
         trend_chart = alt.Chart(df_trend_g).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-            x=alt.X('Mes:N', title=None, sort=None, axis=alt.Axis(labelAngle=-35)),
-            y=alt.Y('Monto:Q', title='Monto ($)', axis=alt.Axis(format='$,.0f')),
+            x=alt.X('Mes:N', title=None, sort=None,
+                    axis=alt.Axis(labelAngle=-90, labelFontSize=11, labelLimit=60)),
+            y=alt.Y('Monto:Q', title=None, axis=alt.Axis(format='$,.0f', labelFontSize=11)),
             color=alt.Color('tipo:N',
                 scale=alt.Scale(domain=['Ingreso', 'Gasto'], range=['#2e7d32', '#d32f2f']),
-                legend=alt.Legend(title=None, orient='top')
+                legend=alt.Legend(title=None, orient='top', labelFontSize=12)
             ),
             xOffset='tipo:N',
             tooltip=[
@@ -106,7 +107,7 @@ def show_dashboard():
                 alt.Tooltip('tipo:N', title='Tipo'),
                 alt.Tooltip('Monto:Q', title='Monto', format='$,.2f')
             ]
-        ).properties(height=220)
+        ).properties(height=220).configure_view(strokeWidth=0)
         st.altair_chart(trend_chart, use_container_width=True)
 
     st.divider()
@@ -126,11 +127,11 @@ def show_dashboard():
                 theta=alt.Theta("Monto:Q", stack=True),
                 color=alt.Color("Tipo:N",
                     scale=alt.Scale(domain=['Gasto Huerto', 'Gasto Personal'], range=['#d32f2f', '#1976d2']),
-                    legend=alt.Legend(title=None, orient='bottom')
+                    legend=alt.Legend(title=None, orient='right', labelFontSize=12, labelLimit=100)
                 ),
                 order=alt.Order("Monto:Q", sort="descending"),
                 tooltip=["Tipo:N", alt.Tooltip("Monto:Q", format="$,.2f"), alt.Tooltip("Porcentaje:Q", format=".1%")]
-            ).properties(height=240)
+            ).properties(height=220).configure_view(strokeWidth=0)
             st.altair_chart(pie, use_container_width=True)
         else:
             st.info("Sin gastos registrados.")
@@ -142,11 +143,12 @@ def show_dashboard():
             df_ch['Monto'] = df_ch['monto_centavos'].apply(cents_to_float)
             ch = df_ch.groupby("categoria")["Monto"].sum().sort_values(ascending=False).reset_index().head(5)
             bar = alt.Chart(ch).mark_bar(cornerRadiusEnd=4).encode(
-                x=alt.X("Monto:Q", title=None, axis=alt.Axis(format='$,.0f')),
-                y=alt.Y("categoria:N", sort="-x", title=None),
+                x=alt.X("Monto:Q", title=None, axis=alt.Axis(format='$,.0f', labelFontSize=11)),
+                y=alt.Y("categoria:N", sort="-x", title=None,
+                        axis=alt.Axis(labelFontSize=11, labelLimit=130)),
                 color=alt.Color("categoria:N", scale=alt.Scale(scheme="tableau10"), legend=None),
                 tooltip=[alt.Tooltip("categoria:N", title="Categoría"), alt.Tooltip("Monto:Q", format="$,.2f")]
-            ).properties(height=240)
+            ).properties(height=220).configure_view(strokeWidth=0)
             st.altair_chart(bar, use_container_width=True)
         else:
             st.caption("Sin datos.")
@@ -181,8 +183,8 @@ def show_dashboard():
         recent["Monto"] = recent["monto_centavos"].apply(lambda x: format_currency(cents_to_float(x)))
         recent["Concepto"] = recent["concepto"].fillna("—")
         st.dataframe(
-            recent[["fecha", "Tipo", "categoria", "Concepto", "Monto", "tercero_nombre"]].rename(columns={
-                "fecha": "Fecha", "categoria": "Categoría", "tercero_nombre": "Tercero"
+            recent[["fecha", "Tipo", "categoria", "Monto"]].rename(columns={
+                "fecha": "Fecha", "categoria": "Categoría"
             }),
             use_container_width=True,
             hide_index=True,

@@ -139,6 +139,29 @@ def inject_custom_css():
                 padding-right: 0.75rem !important;
                 padding-top: 0.75rem !important;
             }}
+
+            /* Gráficas side-by-side → columna única */
+            [data-testid="stHorizontalBlock"]:has(canvas) {{
+                flex-direction: column !important;
+            }}
+            [data-testid="stHorizontalBlock"]:has(canvas) > [data-testid="column"] {{
+                min-width: 100% !important;
+                flex: 1 1 100% !important;
+            }}
+
+            /* KPIs dentro de expander: 3 cols → wrap 1 col */
+            [data-testid="stExpander"] [data-testid="stHorizontalBlock"] {{
+                flex-wrap: wrap !important;
+            }}
+            [data-testid="stExpander"] [data-testid="stHorizontalBlock"] > [data-testid="column"] {{
+                min-width: 100% !important;
+                flex: 1 1 100% !important;
+            }}
+
+            /* Ocultar subtítulo del header */
+            .agro-header .sub {{
+                display: none !important;
+            }}
         }}
     </style>
     """, unsafe_allow_html=True)

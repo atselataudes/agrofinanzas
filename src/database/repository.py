@@ -64,21 +64,41 @@ class Repository:
     def create_movement(self, mov: schemas.MovementCreate):
         query = """
             INSERT INTO fin_movimientos
-            (fecha, tipo, categoria, concepto, cantidad, monto_centavos, tercero_id, lote_id, comprobante_path)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            (fecha, tipo, categoria, concepto, cantidad, monto_centavos, tercero_id, lote_id,
+             comprobante_path, es_credito, fecha_cobro, cobrado)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
         params = (
             mov.fecha, mov.tipo, mov.categoria, mov.concepto, mov.cantidad,
-            mov.monto_centavos, mov.tercero_id, mov.lote_id, mov.comprobante_path
+            mov.monto_centavos, mov.tercero_id, mov.lote_id, mov.comprobante_path,
+            getattr(mov, 'es_credito', 0), getattr(mov, 'fecha_cobro', None), getattr(mov, 'cobrado', 0)
         )
         result = self._execute_query(query, params, commit=True)
         st.cache_data.clear()
         return result
 
+    def marcar_cobrado(self, mov_id: int):
+        self._execute_query(
+            "UPDATE fin_movimientos SET cobrado=1 WHERE id=?", (mov_id,), commit=True
+        )
+        st.cache_data.clear()
+
+    def get_cuentas_por_cobrar_df(self) -> pd.DataFrame:
+        return self.get_dataframe("""
+            SELECT m.id, m.fecha, m.fecha_cobro, m.categoria, m.concepto,
+                   m.monto_centavos, m.cobrado, l.nombre as lote_nombre, t.nombre as tercero_nombre
+            FROM fin_movimientos m
+            LEFT JOIN cat_lotes l ON m.lote_id = l.id
+            LEFT JOIN cat_terceros t ON m.tercero_id = t.id
+            WHERE m.es_credito = 1 AND m.tipo = 'Ingreso'
+            ORDER BY m.fecha_cobro ASC
+        """)
+
     def get_movements_df(self, limit: int = None) -> pd.DataFrame:
         query = """
-            SELECT m.id, m.fecha, m.tipo, m.categoria, m.concepto, m.cantidad, m.monto_centavos, 
+            SELECT m.id, m.fecha, m.tipo, m.categoria, m.concepto, m.cantidad, m.monto_centavos,
                    m.comprobante_path, m.lote_id, m.tercero_id,
+                   m.es_credito, m.fecha_cobro, m.cobrado,
                    t.nombre as tercero_nombre, l.nombre as lote_nombre
             FROM fin_movimientos m 
             LEFT JOIN cat_terceros t ON m.tercero_id = t.id 

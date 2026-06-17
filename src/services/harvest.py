@@ -1,5 +1,5 @@
 from datetime import date
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 from src.database.repository import Repository
 from src.models.schemas import MovementCreate, HarvestDetailCreate
@@ -15,6 +15,8 @@ def register_harvest(
     details: List[Dict],
     comprobante_path: str = None,
     folio: str = None,
+    es_credito: int = 0,
+    fecha_cobro: Optional[str] = None,
 ) -> int:
     """Creates the harvest movement and its calibre breakdown.
     Returns the new movement ID."""
@@ -35,6 +37,9 @@ def register_harvest(
         tercero_id=cliente_id,
         lote_id=lote_id,
         comprobante_path=comprobante_path,
+        es_credito=es_credito,
+        fecha_cobro=fecha_cobro,
+        cobrado=0,
     )
     mov_id = repo.create_movement(mov)
 

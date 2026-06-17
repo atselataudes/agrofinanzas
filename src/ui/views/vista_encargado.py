@@ -4,6 +4,12 @@ from src.ui.views.bitacora import show_bitacora
 from src.ui.views.movements import show_movements
 from src.ui.views.harvest import show_harvest
 from src.ui.views.captura_inteligente import show_captura_inteligente
+from src.ui.views.asistente import show_asistente
+from src.ui.views.journal import show_journal
+from src.ui.views.inventory import show_inventory
+from src.ui.views.reports import show_reports
+from src.ui.views.credits import show_credits
+from src.ui.views.cuentas_cobrar import show_cuentas_cobrar
 
 _SESSION_KEY  = "encargado_autenticado"
 _NAV_KEY      = "encargado_nav"
@@ -11,9 +17,15 @@ _PIN_SETTING  = "pin_encargado"
 _PIN_DEFAULT  = "1234"
 
 _MENU = [
+    "🧠 Asistente",
     "🤖 Captura",
     "📝 Gastos",
     "🥑 Corte",
+    "📒 Diario",
+    "💳 Por Cobrar",
+    "📦 Inventario",
+    "🏦 Créditos",
+    "📊 Reportes",
     "📋 Bitácora",
 ]
 
@@ -60,12 +72,24 @@ def show_encargado_app():
             st.session_state.pop(_NAV_KEY, None)
             st.rerun()
 
-    if seccion == "🤖 Captura":
+    if seccion == "🧠 Asistente":
+        show_asistente()
+    elif seccion == "🤖 Captura":
         show_captura_inteligente()
     elif seccion == "📝 Gastos":
-        show_movements()
+        show_movements(ocultar_personal=True)
     elif seccion == "🥑 Corte":
         show_harvest()
+    elif seccion == "📒 Diario":
+        show_journal()
+    elif seccion == "💳 Por Cobrar":
+        show_cuentas_cobrar(solo_lectura=True)
+    elif seccion == "📦 Inventario":
+        show_inventory()
+    elif seccion == "🏦 Créditos":
+        show_credits()
+    elif seccion == "📊 Reportes":
+        show_reports(ocultar_personal=True)
     elif seccion == "📋 Bitácora":
         show_bitacora(modo_encargado=True)
 

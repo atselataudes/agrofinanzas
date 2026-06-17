@@ -146,7 +146,18 @@ def init_db():
         try:
             cursor.execute(f"ALTER TABLE reg_ticket_folios ADD COLUMN {col} {tipo}")
         except Exception:
-            pass  # La columna ya existe
+            pass
+
+    # Migración: columnas de crédito en fin_movimientos
+    for col, tipo in [
+        ("es_credito",    "INTEGER DEFAULT 0"),
+        ("fecha_cobro",   "TEXT"),
+        ("cobrado",       "INTEGER DEFAULT 0"),
+    ]:
+        try:
+            cursor.execute(f"ALTER TABLE fin_movimientos ADD COLUMN {col} {tipo}")
+        except Exception:
+            pass
     # Insert default initial balance if not exists
     cursor.execute("INSERT OR IGNORE INTO cat_settings (key, value) VALUES ('saldo_inicial_centavos', '0')")
     

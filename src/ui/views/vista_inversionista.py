@@ -54,6 +54,11 @@ def show_inversionista_app():
     total_gastos = cents_to_float(df_gastos["monto_centavos"].sum())
     utilidad = ingreso_neto - total_gastos
 
+    # ── Cuentas por cobrar ────────────────────────────────────────────────────
+    df_cobrar = repo.get_cuentas_por_cobrar_df()
+    pendientes_cobro = df_cobrar[df_cobrar["cobrado"] == 0] if not df_cobrar.empty else df_cobrar
+    total_por_cobrar = cents_to_float(pendientes_cobro["monto_centavos"].sum()) if not pendientes_cobro.empty else 0.0
+
     # ── Deuda (créditos activos) ───────────────────────────────────────────────
     df_prestamos = repo.get_active_loans_df()
     total_deuda = 0.0
@@ -71,9 +76,11 @@ def show_inversionista_app():
               delta=f"-{format_currency(pagado_encargado)}", delta_color="inverse")
 
     st.markdown("### 🧾 ¿Cuánto se gastó?")
-    g1, g2 = st.columns(2)
+    g1, g2, g3 = st.columns(3)
     g1.metric("Total Gastos Operativos", format_currency(total_gastos))
-    g2.metric("Deuda Pendiente", format_currency(total_deuda),
+    g2.metric("Por Cobrar (ventas a crédito)", format_currency(total_por_cobrar),
+              help="Ventas ya registradas pero cuyo pago aún no ha llegado")
+    g3.metric("Deuda Pendiente", format_currency(total_deuda),
               help="Préstamos activos sin liquidar")
 
     st.markdown("### 📈 Resultado Final")
