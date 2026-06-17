@@ -64,12 +64,10 @@ def show_inversionista_app():
 
     # ── KPIs principales ──────────────────────────────────────────────────────
     st.markdown("### 💰 ¿Cuánto dinero entró?")
-    k1, k2, k3 = st.columns(3)
-    k1.metric("Ventas Totales (precio lleno)", format_currency(venta_bruta),
-              help="Suma de todo lo que se vendió antes de dividir con socios")
-    k2.metric("Nuestra parte de las ventas", format_currency(subtotal),
+    k1, k2 = st.columns(2)
+    k1.metric("Nuestra parte de las ventas", format_currency(subtotal),
               help="Exportación: 50% · Nacional: 100%")
-    k3.metric("Pagado al Encargado (10%)", format_currency(pagado_encargado),
+    k2.metric("Pagado al Encargado (10%)", format_currency(pagado_encargado),
               delta=f"-{format_currency(pagado_encargado)}", delta_color="inverse")
 
     st.markdown("### 🧾 ¿Cuánto se gastó?")
