@@ -33,8 +33,9 @@ def _get_client():
 
 
 def _clean_json(text: str) -> dict:
-    """Strip markdown fences and parse JSON."""
+    """Strip markdown fences and parse JSON, with fallback regex extraction."""
     text = text.strip()
+    # Remove markdown fences
     if "```" in text:
         for block in text.split("```"):
             block = block.strip()
@@ -43,7 +44,17 @@ def _clean_json(text: str) -> dict:
             if block.startswith("{"):
                 text = block
                 break
-    return json.loads(text)
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Fallback: extract first {...} block
+    import re
+    match = re.search(r'\{.*\}', text, re.DOTALL)
+    if match:
+        return json.loads(match.group())
+    raise ValueError("No JSON found")
 
 
 _PROMPT_SUFFIX = """
@@ -199,5 +210,6 @@ def analizar_texto(texto: str) -> dict:
 
     try:
         return _clean_json(resp.content[0].text)
-    except Exception:
-        return {"error": "No se pudo interpretar el texto.", "raw": resp.content[0].text}
+    except Exception as exc:
+        raw = resp.content[0].text
+        return {"error": f"No se pudo interpretar el texto ({exc}). Intenta ser más específico, ej: 'Pagué 500 pesos de combustible hoy'.", "raw": raw}
