@@ -158,6 +158,28 @@ def init_db():
             cursor.execute(f"ALTER TABLE fin_movimientos ADD COLUMN {col} {tipo}")
         except Exception:
             pass
+
+    # Migración de una sola vez: marcar ventas de cosecha EXISTENTES como crédito a 22 días.
+    # Solo corre una vez (protegida por bandera) para no afectar ventas de contado futuras.
+    cursor.execute("SELECT value FROM cat_settings WHERE key='migracion_credito_22d'")
+    _ya_migrado = cursor.fetchone()
+    if not _ya_migrado:
+        try:
+            cursor.execute("""
+                UPDATE fin_movimientos
+                SET es_credito = 1,
+                    fecha_cobro = date(fecha, '+22 days'),
+                    cobrado = 0
+                WHERE tipo = 'Ingreso'
+                  AND (categoria LIKE '%Venta Cosecha%' OR categoria LIKE '%Venta Descarte%')
+                  AND (es_credito IS NULL OR es_credito = 0)
+            """)
+        except Exception:
+            pass
+        cursor.execute(
+            "INSERT OR REPLACE INTO cat_settings (key, value) VALUES ('migracion_credito_22d', '1')"
+        )
+
     # Insert default initial balance if not exists
     cursor.execute("INSERT OR IGNORE INTO cat_settings (key, value) VALUES ('saldo_inicial_centavos', '0')")
     

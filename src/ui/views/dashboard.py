@@ -11,7 +11,7 @@ def show_dashboard():
     repo = Repository()
     
     # Fetch Data
-    df_movs = repo.get_dataframe("SELECT tipo, monto_centavos, fecha, categoria, cantidad FROM fin_movimientos")
+    df_movs = repo.get_dataframe("SELECT tipo, monto_centavos, fecha, categoria, cantidad, es_credito, cobrado FROM fin_movimientos")
     
     if df_movs.empty:
         st.markdown("### 👋 Bienvenido a AgroFinanzas Pro")
@@ -38,11 +38,25 @@ def show_dashboard():
                 st.info("Disponible con datos registrados.")
         return
 
-    # 1. CAJA (Saldo Inicial + Ingresos - Gastos)
+    # Normalizar columnas de crédito (pueden venir NaN en filas viejas)
+    if 'es_credito' not in df_movs.columns:
+        df_movs['es_credito'] = 0
+    if 'cobrado' not in df_movs.columns:
+        df_movs['cobrado'] = 0
+    df_movs['es_credito'] = df_movs['es_credito'].fillna(0).astype(int)
+    df_movs['cobrado'] = df_movs['cobrado'].fillna(0).astype(int)
+
+    # 1. CAJA (Saldo Inicial + Ingresos COBRADOS - Gastos)
+    #    Las ventas a crédito no cobradas NO cuentan como efectivo todavía.
     saldo_inicial_cents = int(repo.get_setting('saldo_inicial_centavos', '0'))
-    ing_tot = df_movs[df_movs['tipo']=='Ingreso']['monto_centavos'].sum()
+    df_ing = df_movs[df_movs['tipo']=='Ingreso']
+    ing_cobrado = df_ing[(df_ing['es_credito']==0) | (df_ing['cobrado']==1)]['monto_centavos'].sum()
+    ing_tot = df_ing['monto_centavos'].sum()  # total devengado (para utilidad)
     gas_tot = df_movs[df_movs['tipo']=='Gasto']['monto_centavos'].sum()
-    saldo = saldo_inicial_cents + ing_tot - gas_tot
+    saldo = saldo_inicial_cents + ing_cobrado - gas_tot
+
+    # Por cobrar: ventas a crédito pendientes
+    por_cobrar = df_ing[(df_ing['es_credito']==1) & (df_ing['cobrado']==0)]['monto_centavos'].sum()
 
     # 2. NEGOCIO
     # Exclude loans and personal expenses for Business Logic
@@ -69,16 +83,18 @@ def show_dashboard():
             deuda += (s + inte)
 
     st.markdown("### 📊 Resumen Financiero")
-    
+
     # Top Row Cards
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         metric_card("💰 Caja (Efectivo)", format_currency(cents_to_float(saldo)))
     with c2:
-        metric_card("🚜 Utilidad Huerto", format_currency(cents_to_float(util_huerto)), "Negocio")
+        metric_card("💳 Por Cobrar", format_currency(cents_to_float(por_cobrar)), "Crédito")
     with c3:
-        metric_card("🏠 Gasto Personal", format_currency(cents_to_float(g_pers)), "Retiro", "inverse")
+        metric_card("🚜 Utilidad Huerto", format_currency(cents_to_float(util_huerto)), "Negocio")
     with c4:
+        metric_card("🏠 Gasto Personal", format_currency(cents_to_float(g_pers)), "Retiro", "inverse")
+    with c5:
         metric_card("🏦 Deuda Total", format_currency(deuda), "A Pagar", "inverse")
 
     st.divider()
