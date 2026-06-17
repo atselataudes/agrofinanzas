@@ -26,7 +26,11 @@ def show_harvest():
         c1, c2, c3 = st.columns(3)
         fecha = c1.date_input("Fecha de Corte", value=date.today())
         lote_sel = c2.selectbox("Huerto Origen", list(lotes_map.keys()))
-        cliente_sel = c3.selectbox("Cliente (Comprador)", list(clientes_map.keys()))
+        _clientes_list = list(clientes_map.keys())
+        _default_idx = _clientes_list.index("otro") if "otro" in _clientes_list else (
+            _clientes_list.index("Otro") if "Otro" in _clientes_list else 0
+        )
+        cliente_sel = c3.selectbox("Cliente (Comprador)", _clientes_list, index=_default_idx)
         
         st.divider()
 
