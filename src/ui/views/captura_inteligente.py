@@ -423,11 +423,18 @@ def show_captura_inteligente():
 
             if "error" in datos:
                 st.error(f"❌ {datos['error']}")
+                st.code(datos.get("raw", ""), language="text")
                 if st.button("Limpiar", key="ci_clear_voz"):
                     st.session_state.pop("ci_voz_result", None)
                     st.session_state.pop("ci_voz_texto", None)
                     st.rerun()
             else:
-                with st.expander("📄 Datos extraídos por la IA", expanded=False):
-                    st.json(datos)
-                _render_form_prefilled(datos, repo, origen="voz")
+                movimientos = datos.get("movimientos", [datos])
+                st.success(f"✅ La IA detectó **{len(movimientos)} movimiento(s)**. Revisa y guarda cada uno.")
+                if st.button("🗑️ Limpiar todo", key="ci_clear_voz"):
+                    st.session_state.pop("ci_voz_result", None)
+                    st.session_state.pop("ci_voz_texto", None)
+                    st.rerun()
+                for i, mov in enumerate(movimientos):
+                    with st.expander(f"📋 Movimiento {i+1} — {mov.get('categoria', '')} · ${mov.get('monto') or 0:,.0f}", expanded=True):
+                        _render_form_prefilled(mov, repo, origen=f"voz_{i}")

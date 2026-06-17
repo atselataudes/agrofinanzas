@@ -181,8 +181,8 @@ Reglas:
 
 def analizar_texto(texto: str) -> dict:
     """
-    Parse a free-form expense description (from voice or text) into structured fields.
-    Returns {"error": "..."} on failure.
+    Parse a free-form expense description into one or more structured movements.
+    Returns {"movimientos": [...]} or {"error": "..."}.
     """
     client, err = _get_client()
     if err:
@@ -190,26 +190,34 @@ def analizar_texto(texto: str) -> dict:
 
     today = date.today().isoformat()
 
+    prompt = (
+        f"Eres asistente contable de una finca de aguacate.\n"
+        f"El usuario describió: \"{texto}\"\n"
+        f"Hoy: {today}\n\n"
+        f"Puede haber UNO O VARIOS movimientos en el texto. Extrae TODOS y devuelve SOLO JSON válido:\n"
+        f"{{\"movimientos\": [\n"
+        f"  {{\"fecha\": \"{today}\", \"monto\": null, \"concepto\": null, \"proveedor\": null, \"tipo\": \"Gasto Huerto\", \"categoria\": \"Fertilizantes\"}}\n"
+        f"]}}\n"
+        f"{_PROMPT_SUFFIX}\n"
+        "Reglas:\n"
+        "- Si menciona venta/cobro/ingreso/amarre → tipo=Ingreso.\n"
+        "- Si hay varios gastos o ingresos distintos, crea un objeto por cada uno.\n"
+        "- Si no puedes inferir un campo usa null.\n"
+        "- Devuelve SOLO el JSON, sin texto adicional."
+    )
+
     resp = client.messages.create(
         model="claude-haiku-4-5-20251001",
-        max_tokens=512,
-        messages=[{
-            "role": "user",
-            "content": (
-                f"Eres asistente contable de una finca de aguacate.\n"
-                f"El usuario registró: \"{texto}\"\n"
-                f"Hoy: {today}\n\n"
-                f"Extrae el movimiento y devuelve SOLO JSON válido:\n"
-                f"{_JSON_TEMPLATE.format(today=today)}\n"
-                f"{_PROMPT_SUFFIX}\n"
-                "Si menciona venta/cobro/ingreso/amarre → tipo=Ingreso.\n"
-                "Si no puedes inferir un campo usa null."
-            )
-        }]
+        max_tokens=1024,
+        messages=[{"role": "user", "content": prompt}]
     )
 
     try:
-        return _clean_json(resp.content[0].text)
+        data = _clean_json(resp.content[0].text)
+        # Normalize: si la IA devolvió un objeto solo (sin lista), lo envolvemos
+        if "movimientos" not in data:
+            data = {"movimientos": [data]}
+        return data
     except Exception as exc:
         raw = resp.content[0].text
-        return {"error": f"No se pudo interpretar el texto ({exc}). Intenta ser más específico, ej: 'Pagué 500 pesos de combustible hoy'.", "raw": raw}
+        return {"error": f"No se pudo interpretar el texto ({exc}).", "raw": raw}
