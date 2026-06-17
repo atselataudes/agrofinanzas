@@ -57,7 +57,8 @@ def show_inversionista_app():
     # ── Cuentas por cobrar ────────────────────────────────────────────────────
     df_cobrar = repo.get_cuentas_por_cobrar_df()
     pendientes_cobro = df_cobrar[df_cobrar["cobrado"] == 0] if not df_cobrar.empty else df_cobrar
-    total_por_cobrar = cents_to_float(pendientes_cobro["monto_centavos"].sum()) if not pendientes_cobro.empty else 0.0
+    # Nuestra parte neta = monto en DB (ya 50%/100%) × 0.90 (−10% gerente)
+    total_por_cobrar = cents_to_float(pendientes_cobro["monto_centavos"].sum()) * 0.90 if not pendientes_cobro.empty else 0.0
 
     # ── Deuda (créditos activos) ───────────────────────────────────────────────
     df_prestamos = repo.get_active_loans_df()

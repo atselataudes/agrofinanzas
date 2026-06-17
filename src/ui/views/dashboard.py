@@ -55,8 +55,9 @@ def show_dashboard():
     gas_tot = df_movs[df_movs['tipo']=='Gasto']['monto_centavos'].sum()
     saldo = saldo_inicial_cents + ing_cobrado - gas_tot
 
-    # Por cobrar: ventas a crédito pendientes
-    por_cobrar = df_ing[(df_ing['es_credito']==1) & (df_ing['cobrado']==0)]['monto_centavos'].sum()
+    # Por cobrar: nuestra parte neta (ya con 50%/100% en DB) menos 10% gerente
+    por_cobrar_bruto = df_ing[(df_ing['es_credito']==1) & (df_ing['cobrado']==0)]['monto_centavos'].sum()
+    por_cobrar = por_cobrar_bruto * 0.90
 
     # 2. NEGOCIO
     # Exclude loans and personal expenses for Business Logic
