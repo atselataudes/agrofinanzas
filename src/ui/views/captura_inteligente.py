@@ -225,11 +225,13 @@ def _render_form_prefilled(datos: dict, repo: Repository, origen: str = "imagen"
 
         # Tercero
         ter_opts   = list(ters_map.keys())
-        ter_default = 0
-        for i, n in enumerate(ter_opts):
-            if proveedor_ai.lower() in n.lower() or n.lower() in proveedor_ai.lower():
-                ter_default = i
-                break
+        _otro_idx  = next((i for i, n in enumerate(ter_opts) if n.lower() in ("otro", "otros")), 0)
+        ter_default = _otro_idx
+        if proveedor_ai:
+            for i, n in enumerate(ter_opts):
+                if proveedor_ai.lower() in n.lower() or n.lower() in proveedor_ai.lower():
+                    ter_default = i
+                    break
         tercero_nombre = c1b.selectbox("Tercero / Proveedor", ter_opts, index=ter_default, key=f"ci_ter_{origen}")
 
         notas = c2b.text_input("Notas / Referencia", value=concepto_ai, key=f"ci_notas_{origen}")
