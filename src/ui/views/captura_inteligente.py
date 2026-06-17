@@ -408,6 +408,10 @@ def show_captura_inteligente():
                     result = analizar_texto(texto)
                     st.session_state["ci_voz_result"] = result
                     st.session_state["ci_voz_texto"]  = texto
+                # Debug temporal
+                if "error" in result:
+                    st.error(f"Error: {result.get('error')}")
+                    st.code(result.get("raw", "(sin respuesta de la IA)"), language="text")
                 st.rerun()
 
         # Show voice result
