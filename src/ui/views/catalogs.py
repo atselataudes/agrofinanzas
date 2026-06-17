@@ -4,6 +4,24 @@ from src.database.repository import Repository
 from src.models.schemas import LotCreate, ThirdPartyCreate
 from src.ui.views.vista_encargado import show_cambiar_pin
 
+
+def _show_cambiar_pin_inversionista():
+    repo = Repository()
+    st.markdown("#### 📈 PIN del Inversionista")
+    with st.container(border=True):
+        c1, c2 = st.columns(2)
+        nuevo = c1.text_input("Nuevo PIN (4 dígitos)", type="password", max_chars=4, key="pin_inv_nuevo")
+        confirma = c2.text_input("Confirmar PIN", type="password", max_chars=4, key="pin_inv_confirma")
+        st.caption(f"PIN actual: {'****'}")
+        if st.button("Guardar PIN Inversionista", key="pin_inv_save"):
+            if len(nuevo) != 4 or not nuevo.isdigit():
+                st.error("El PIN debe ser exactamente 4 dígitos numéricos.")
+            elif nuevo != confirma:
+                st.error("Los PINs no coinciden.")
+            else:
+                repo.update_setting("pin_inversionista", nuevo)
+                st.success("✅ PIN del inversionista actualizado.")
+
 def show_catalogs():
     st.markdown("### 📂 Catálogos")
     t1, t2, t3 = st.tabs(["Lotes (Huertos)", "Terceros (Personas)", "⚙️ Configuración"])
@@ -74,3 +92,5 @@ def show_catalogs():
 
         st.divider()
         show_cambiar_pin()
+        st.divider()
+        _show_cambiar_pin_inversionista()

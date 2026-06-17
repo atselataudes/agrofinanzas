@@ -14,6 +14,7 @@ from src.ui.views.captura_inteligente import show_captura_inteligente
 from src.ui.views.asistente import show_asistente
 from src.ui.views.bitacora import show_bitacora
 from src.ui.views.vista_encargado import show_encargado_app
+from src.ui.views.vista_inversionista import show_inversionista_app
 
 # --- CONFIGURATION ---
 st.set_page_config(
@@ -39,7 +40,7 @@ def _check_login():
     render_header()
     st.markdown("### Iniciar sesión")
 
-    rol = st.radio("¿Quién eres?", ["👨‍💼 Administrador", "👷 Encargado"],
+    rol = st.radio("¿Quién eres?", ["👨‍💼 Administrador", "👷 Encargado", "📈 Inversionista"],
                    horizontal=True, key="login_rol")
 
     with st.container(border=True):
@@ -53,10 +54,17 @@ def _check_login():
                     st.rerun()
                 else:
                     st.error("Contraseña incorrecta.")
-            else:
+            elif rol == "👷 Encargado":
                 pin_enc = repo.get_setting("pin_encargado", "1234")
                 if pwd == pin_enc:
                     st.session_state["rol_activo"] = "encargado"
+                    st.rerun()
+                else:
+                    st.error("PIN incorrecto.")
+            else:
+                pin_inv = repo.get_setting("pin_inversionista", "0000")
+                if pwd == pin_inv:
+                    st.session_state["rol_activo"] = "inversionista"
                     st.rerun()
                 else:
                     st.error("PIN incorrecto.")
@@ -109,3 +117,7 @@ if st.session_state.get("rol_activo") == "admin":
 # ── ENCARGADO ────────────────────────────────────────────────────────────────
 elif st.session_state.get("rol_activo") == "encargado":
     show_encargado_app()
+
+# ── INVERSIONISTA ─────────────────────────────────────────────────────────────
+elif st.session_state.get("rol_activo") == "inversionista":
+    show_inversionista_app()
