@@ -196,11 +196,14 @@ def show_dashboard():
             total_kg     = df_ventas_kpi['cantidad'].sum()
             margen       = (util_op / ingresos_neg) if ingresos_neg > 0 else 0.0
             costo_kg     = (gastos_neg / total_kg) if total_kg > 0 else 0.0
-            precio_prom  = (df_ventas_kpi['Monto'].sum() / total_kg) if total_kg > 0 else 0.0
-            ck1, ck2, ck3 = st.columns(3)
-            ck1.metric("Margen Utilidad", f"{margen:.1%}", help="(Ingresos − Gastos) / Ingresos")
+            # Precio de mercado = venta BRUTA / kilos; lo neto por kg es aparte
+            precio_prom  = (df_ventas_kpi['monto_centavos'].apply(cents_to_float).sum() / total_kg) if total_kg > 0 else 0.0
+            neto_por_kg  = (df_ventas_kpi['Monto'].sum() / total_kg) if total_kg > 0 else 0.0
+            ck1, ck2, ck3, ck4 = st.columns(4)
+            ck1.metric("Margen Utilidad", f"{margen:.1%}", help="(Ingresos netos − Gastos) / Ingresos netos")
             ck2.metric("Costo por Kg", format_currency(costo_kg), help="Gasto Total / Kilos vendidos")
-            ck3.metric("Precio Prom. Venta", format_currency(precio_prom), help="Venta Total / Kilos vendidos")
+            ck3.metric("Precio Prom. Venta", format_currency(precio_prom), help="Precio de mercado: venta bruta total / kilos vendidos")
+            ck4.metric("Tu Neto por Kg", format_currency(neto_por_kg), help="Lo que te queda por kilo ya sin el 50% del socio (exportación) ni el 10% del gerente")
         else:
             st.info("Registra ingresos y gastos de negocio para ver los KPIs.")
 
