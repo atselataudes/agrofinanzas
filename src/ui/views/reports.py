@@ -197,11 +197,22 @@ def show_reports(ocultar_personal: bool = False):
         df_neg = df_all[~df_all['categoria'].isin(['Financiamiento', 'Pago Deuda'] + CATEGORIAS_PERSONALES)].copy()
         
         if not df_neg.empty:
-            df_neg['Monto'] = df_neg['monto_centavos'].apply(cents_to_float)
+            # Mi parte real: exportación 50% (el resto es del socio), −10% gerente en ventas
+            def _monto_neto_negocio(row):
+                m = cents_to_float(row['monto_centavos'])
+                if row['tipo'] == 'Ingreso':
+                    cat = str(row['categoria'])
+                    if ('Venta Cosecha' in cat) or ('Venta Descarte' in cat):
+                        if 'Exportación' in cat:
+                            m = m * 0.50
+                        m = m * 0.90
+                return m
+            df_neg['Monto'] = df_neg.apply(_monto_neto_negocio, axis=1)
             ing = df_neg[df_neg['tipo']=='Ingreso']['Monto'].sum()
             gas = df_neg[df_neg['tipo']=='Gasto']['Monto'].sum()
-            
-            st.metric("Utilidad Neta Huerto", format_currency(ing-gas))
+
+            st.metric("Utilidad Neta Huerto", format_currency(ing-gas),
+                      help="Ingresos netos (tu parte) − gastos del huerto")
             
             c_tbl, c_pie = st.columns(2)
             df_chart = df_neg[df_neg['tipo']=='Gasto'].groupby('categoria')['Monto'].sum().reset_index()
