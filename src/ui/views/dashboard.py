@@ -158,7 +158,7 @@ def show_dashboard():
                 theta=alt.Theta("Monto:Q", stack=True),
                 color=alt.Color("Tipo:N",
                     scale=alt.Scale(domain=['Gasto Huerto', 'Gasto Personal'], range=['#d32f2f', '#1976d2']),
-                    legend=alt.Legend(title=None, orient='right', labelFontSize=12, labelLimit=100)
+                    legend=alt.Legend(title=None, orient='bottom', labelFontSize=12, labelLimit=140, columns=2)
                 ),
                 order=alt.Order("Monto:Q", sort="descending"),
                 tooltip=["Tipo:N", alt.Tooltip("Monto:Q", format="$,.2f"), alt.Tooltip("Porcentaje:Q", format=".1%")]
@@ -176,7 +176,7 @@ def show_dashboard():
             bar = alt.Chart(ch).mark_bar(cornerRadiusEnd=4).encode(
                 x=alt.X("Monto:Q", title=None, axis=alt.Axis(format='$,.0f', labelFontSize=11)),
                 y=alt.Y("categoria:N", sort="-x", title=None,
-                        axis=alt.Axis(labelFontSize=11, labelLimit=130)),
+                        axis=alt.Axis(labelFontSize=10, labelLimit=95)),
                 color=alt.Color("categoria:N", scale=alt.Scale(scheme="tableau10"), legend=None),
                 tooltip=[alt.Tooltip("categoria:N", title="Categoría"), alt.Tooltip("Monto:Q", format="$,.2f")]
             ).properties(height=220).configure_view(strokeWidth=0)
@@ -214,11 +214,12 @@ def show_dashboard():
     st.markdown("#### 🕒 Actividad Reciente")
     recent = repo.get_movements_df(limit=8)
     if not recent.empty:
-        recent["Tipo"] = recent["tipo"].map(lambda t: "🟢 Ingreso" if t == "Ingreso" else "🔴 Gasto")
+        # Tipo compacto (solo icono) y Monto antes de Categoría para que se vea completo en móvil
+        recent["Tipo"] = recent["tipo"].map(lambda t: "🟢" if t == "Ingreso" else "🔴")
         recent["Monto"] = recent["monto_centavos"].apply(lambda x: format_currency(cents_to_float(x)))
         recent["Concepto"] = recent["concepto"].fillna("—")
         st.dataframe(
-            recent[["fecha", "Tipo", "categoria", "Monto"]].rename(columns={
+            recent[["fecha", "Tipo", "Monto", "categoria"]].rename(columns={
                 "fecha": "Fecha", "categoria": "Categoría"
             }),
             use_container_width=True,

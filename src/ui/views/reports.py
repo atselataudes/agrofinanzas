@@ -135,11 +135,13 @@ def show_reports(ocultar_personal: bool = False):
                 format_currency(mis_ingresos),
                 help="Tu parte real — exportación al 50%, nacional al 100%"
             )
+            # Escapar '$' para que Streamlit no lo interprete como fórmula LaTeX
+            _fc = lambda v: format_currency(v).replace("$", "\\$")
             st.caption(
-                f"🌍 Exportación: {format_currency(exportacion_bruta)} × 50% = **{format_currency(exportacion_neta)}**  \n"
-                f"🇲🇽 Nacional / Descarte: **{format_currency(nacional_total)}**  \n"
-                f"👷 Gerente de operaciones (10%): −**{format_currency(comision_gerente)}**  \n"
-                f"✅ Tu ingreso neto: **{format_currency(mis_ingresos)}**"
+                f"🌍 Exportación: {_fc(exportacion_bruta)} × 50% = **{_fc(exportacion_neta)}**  \n"
+                f"🇲🇽 Nacional / Descarte: **{_fc(nacional_total)}**  \n"
+                f"👷 Gerente de operaciones (10%): −**{_fc(comision_gerente)}**  \n"
+                f"✅ Tu ingreso neto: **{_fc(mis_ingresos)}**"
             )
 
         # Utilidad operativa
