@@ -154,7 +154,7 @@ def show_dashboard():
         })
         if dp['Monto'].sum() > 0:
             dp['Porcentaje'] = dp['Monto'] / dp['Monto'].sum()
-            pie = alt.Chart(dp).mark_arc(outerRadius=110).encode(
+            pie = alt.Chart(dp).mark_arc(outerRadius=85).encode(
                 theta=alt.Theta("Monto:Q", stack=True),
                 color=alt.Color("Tipo:N",
                     scale=alt.Scale(domain=['Gasto Huerto', 'Gasto Personal'], range=['#d32f2f', '#1976d2']),
