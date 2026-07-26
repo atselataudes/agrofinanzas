@@ -46,24 +46,38 @@ def show_dashboard():
     df_movs['es_credito'] = df_movs['es_credito'].fillna(0).astype(int)
     df_movs['cobrado'] = df_movs['cobrado'].fillna(0).astype(int)
 
+    # ── Mi parte real por movimiento ──────────────────────────────────────
+    # Ventas de fruta: Exportación 50% (el resto es del socio), Nacional/Descarte 100%.
+    # A las ventas se les descuenta el 10% del gerente de operaciones.
+    # Préstamos y anticipos quedan al 100% (no llevan reparto).
+    def _monto_neto_cents(row):
+        m = row['monto_centavos']
+        if row['tipo'] == 'Ingreso':
+            cat = str(row['categoria'])
+            if ('Venta Cosecha' in cat) or ('Venta Descarte' in cat):
+                if 'Exportación' in cat:
+                    m = m * 0.50
+                m = m * 0.90  # -10% gerente de operaciones
+        return m
+    df_movs['monto_neto'] = df_movs.apply(_monto_neto_cents, axis=1)
+
     # 1. CAJA (Saldo Inicial + Ingresos COBRADOS - Gastos)
     #    Las ventas a crédito no cobradas NO cuentan como efectivo todavía.
     saldo_inicial_cents = int(repo.get_setting('saldo_inicial_centavos', '0'))
     df_ing = df_movs[df_movs['tipo']=='Ingreso']
-    ing_cobrado = df_ing[(df_ing['es_credito']==0) | (df_ing['cobrado']==1)]['monto_centavos'].sum()
-    ing_tot = df_ing['monto_centavos'].sum()  # total devengado (para utilidad)
-    gas_tot = df_movs[df_movs['tipo']=='Gasto']['monto_centavos'].sum()
+    ing_cobrado = df_ing[(df_ing['es_credito']==0) | (df_ing['cobrado']==1)]['monto_neto'].sum()
+    ing_tot = df_ing['monto_neto'].sum()  # total devengado (para utilidad)
+    gas_tot = df_movs[df_movs['tipo']=='Gasto']['monto_neto'].sum()
     saldo = saldo_inicial_cents + ing_cobrado - gas_tot
 
-    # Por cobrar: nuestra parte neta (ya con 50%/100% en DB) menos 10% gerente
-    por_cobrar_bruto = df_ing[(df_ing['es_credito']==1) & (df_ing['cobrado']==0)]['monto_centavos'].sum()
-    por_cobrar = por_cobrar_bruto * 0.90
+    # Por cobrar: nuestra parte neta (Exportación 50%, menos 10% gerente)
+    por_cobrar = df_ing[(df_ing['es_credito']==1) & (df_ing['cobrado']==0)]['monto_neto'].sum()
 
     # 2. NEGOCIO
     # Exclude loans and personal expenses for Business Logic
     df_neg = df_movs[~df_movs['categoria'].isin(['Financiamiento', 'Pago Deuda'] + CATEGORIAS_PERSONALES)]
-    v_huerto = df_neg[df_neg['tipo']=='Ingreso']['monto_centavos'].sum()
-    g_huerto = df_neg[df_neg['tipo']=='Gasto']['monto_centavos'].sum()
+    v_huerto = df_neg[df_neg['tipo']=='Ingreso']['monto_neto'].sum()
+    g_huerto = df_neg[df_neg['tipo']=='Gasto']['monto_neto'].sum()
     util_huerto = v_huerto - g_huerto
 
     # 3. PERSONAL
@@ -106,7 +120,7 @@ def show_dashboard():
     df_trend['fecha_dt'] = pd.to_datetime(df_trend['fecha'], errors='coerce')
     df_trend = df_trend.dropna(subset=['fecha_dt'])
     df_trend['Mes'] = df_trend['fecha_dt'].dt.to_period('M').astype(str)
-    df_trend['Monto'] = df_trend['monto_centavos'].apply(cents_to_float)
+    df_trend['Monto'] = df_trend['monto_neto'].apply(cents_to_float)
     df_trend_g = df_trend.groupby(['Mes', 'tipo'])['Monto'].sum().reset_index()
 
     if not df_trend_g.empty:
@@ -174,7 +188,7 @@ def show_dashboard():
     with st.expander("📈 Indicadores Clave (KPIs)", expanded=False):
         df_neg_kpi = df_movs[~df_movs['categoria'].isin(['Financiamiento', 'Pago Deuda'] + CATEGORIAS_PERSONALES)].copy()
         if not df_neg_kpi.empty:
-            df_neg_kpi['Monto'] = df_neg_kpi['monto_centavos'].apply(cents_to_float)
+            df_neg_kpi['Monto'] = df_neg_kpi['monto_neto'].apply(cents_to_float)
             ingresos_neg = df_neg_kpi[df_neg_kpi['tipo']=='Ingreso']['Monto'].sum()
             gastos_neg   = df_neg_kpi[df_neg_kpi['tipo']=='Gasto']['Monto'].sum()
             util_op      = ingresos_neg - gastos_neg

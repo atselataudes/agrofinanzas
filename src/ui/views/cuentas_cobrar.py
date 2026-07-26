@@ -4,9 +4,13 @@ from src.database.repository import Repository
 from src.utils.helpers import cents_to_float, format_currency
 
 
-def _neto(monto_centavos: int) -> float:
-    """Descuenta 10% gerente — el monto en DB ya tiene aplicado 50%/100%."""
-    return cents_to_float(monto_centavos) * 0.90
+def _neto(monto_centavos: int, categoria: str = "") -> float:
+    """Mi parte real: Exportación 50% (el resto es del socio), Nacional/Descarte 100%,
+    menos el 10% del gerente de operaciones."""
+    monto = cents_to_float(monto_centavos)
+    if "Exportación" in str(categoria):
+        monto = monto * 0.50
+    return monto * 0.90
 
 
 def show_cuentas_cobrar(solo_lectura: bool = False):
@@ -25,10 +29,10 @@ def show_cuentas_cobrar(solo_lectura: bool = False):
     pendientes = df[df["cobrado"] == 0].copy()
     cobradas   = df[df["cobrado"] == 1].copy()
 
-    total_por_cobrar = sum(_neto(r) for r in pendientes["monto_centavos"]) if not pendientes.empty else 0.0
+    total_por_cobrar = sum(_neto(row["monto_centavos"], row.get("categoria", "")) for _, row in pendientes.iterrows()) if not pendientes.empty else 0.0
     vencidas = pendientes[pendientes["fecha_cobro"] < hoy] if not pendientes.empty else pendientes.iloc[0:0]
     proximas = pendientes[pendientes["fecha_cobro"] >= hoy] if not pendientes.empty else pendientes.iloc[0:0]
-    monto_vencido = sum(_neto(r) for r in vencidas["monto_centavos"]) if not vencidas.empty else 0.0
+    monto_vencido = sum(_neto(row["monto_centavos"], row.get("categoria", "")) for _, row in vencidas.iterrows()) if not vencidas.empty else 0.0
 
     # KPIs
     k1, k2, k3 = st.columns(3)
@@ -44,7 +48,7 @@ def show_cuentas_cobrar(solo_lectura: bool = False):
     if not pendientes.empty:
         st.markdown("#### ⏳ Pendientes de Cobro")
         for _, r in pendientes.sort_values("fecha_cobro").iterrows():
-            neto = _neto(r["monto_centavos"])
+            neto = _neto(r["monto_centavos"], r.get("categoria", ""))
             vencida = str(r["fecha_cobro"]) < hoy
             icono = "🔴" if vencida else "🟡"
             dias_label = ""
@@ -69,6 +73,6 @@ def show_cuentas_cobrar(solo_lectura: bool = False):
     if not cobradas.empty:
         with st.expander(f"✅ Historial cobrado ({len(cobradas)} registros)", expanded=False):
             df_show = cobradas.copy()
-            df_show["Neto recibido"] = df_show["monto_centavos"].apply(_neto).apply(format_currency)
+            df_show["Neto recibido"] = df_show.apply(lambda x: _neto(x["monto_centavos"], x.get("categoria", "")), axis=1).apply(format_currency)
             df_show = df_show.rename(columns={"fecha": "Fecha venta", "fecha_cobro": "Fecha cobro", "concepto": "Descripción"})
             st.dataframe(df_show[["Fecha venta", "Fecha cobro", "Descripción", "Neto recibido"]], use_container_width=True, hide_index=True)
