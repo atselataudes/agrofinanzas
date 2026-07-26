@@ -192,18 +192,19 @@ def show_dashboard():
             ingresos_neg = df_neg_kpi[df_neg_kpi['tipo']=='Ingreso']['Monto'].sum()
             gastos_neg   = df_neg_kpi[df_neg_kpi['tipo']=='Gasto']['Monto'].sum()
             util_op      = ingresos_neg - gastos_neg
-            df_ventas_kpi = df_neg_kpi[(df_neg_kpi['tipo']=='Ingreso') & (df_neg_kpi['categoria'].str.contains("Venta", case=False, na=False))]
-            total_kg     = df_ventas_kpi['cantidad'].sum()
+            df_ventas_kpi = df_neg_kpi[(df_neg_kpi['tipo']=='Ingreso') & (df_neg_kpi['categoria'].str.contains("Venta", case=False, na=False))].copy()
+            # Modelo de reparto: en exportación la mitad de la PRODUCCIÓN es del socio
+            # (él vende sus kilos, yo los míos). Mis kilos = 50% export + 100% nacional.
+            _factor = df_ventas_kpi['categoria'].astype(str).str.contains('Exportación').map({True: 0.5, False: 1.0})
+            mis_kg       = (df_ventas_kpi['cantidad'].fillna(0) * _factor).sum()
+            mi_venta     = (df_ventas_kpi['monto_centavos'].apply(cents_to_float) * _factor).sum()
             margen       = (util_op / ingresos_neg) if ingresos_neg > 0 else 0.0
-            costo_kg     = (gastos_neg / total_kg) if total_kg > 0 else 0.0
-            # Precio de mercado = venta BRUTA / kilos; lo neto por kg es aparte
-            precio_prom  = (df_ventas_kpi['monto_centavos'].apply(cents_to_float).sum() / total_kg) if total_kg > 0 else 0.0
-            neto_por_kg  = (df_ventas_kpi['Monto'].sum() / total_kg) if total_kg > 0 else 0.0
-            ck1, ck2, ck3, ck4 = st.columns(4)
+            costo_kg     = (gastos_neg / mis_kg) if mis_kg > 0 else 0.0
+            precio_prom  = (mi_venta / mis_kg) if mis_kg > 0 else 0.0
+            ck1, ck2, ck3 = st.columns(3)
             ck1.metric("Margen Utilidad", f"{margen:.1%}", help="(Ingresos netos − Gastos) / Ingresos netos")
-            ck2.metric("Costo por Kg", format_currency(costo_kg), help="Gasto Total / Kilos vendidos")
-            ck3.metric("Precio Prom. Venta", format_currency(precio_prom), help="Precio de mercado: venta bruta total / kilos vendidos")
-            ck4.metric("Tu Neto por Kg", format_currency(neto_por_kg), help="Lo que te queda por kilo ya sin el 50% del socio (exportación) ni el 10% del gerente")
+            ck2.metric("Costo por Kg", format_currency(costo_kg), help="Gasto Total / MIS kilos (en exportación la mitad de la producción la vende el socio)")
+            ck3.metric("Precio Prom. Venta", format_currency(precio_prom), help="Mi venta / mis kilos = precio de mercado")
         else:
             st.info("Registra ingresos y gastos de negocio para ver los KPIs.")
 
