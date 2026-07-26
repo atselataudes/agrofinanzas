@@ -218,13 +218,13 @@ def show_reports(ocultar_personal: bool = False):
 
             with c_pie:
                 if not df_chart.empty:
-                    pie = alt.Chart(df_chart).mark_arc(outerRadius=130).encode(
+                    pie = alt.Chart(df_chart).mark_arc(outerRadius=90).encode(
                         theta=alt.Theta("Monto:Q", stack=True),
                         color=alt.Color("categoria:N", scale=alt.Scale(scheme="tableau20"),
-                                        legend=alt.Legend(title=None, orient="bottom", columns=2)),
+                                        legend=alt.Legend(title=None, orient="bottom", columns=2, labelFontSize=10, labelLimit=115, symbolSize=80)),
                         order=alt.Order("Monto:Q", sort="descending"),
                         tooltip=["categoria:N", alt.Tooltip("Monto:Q", format="$,.2f"), alt.Tooltip("%:Q", format=".1%")]
-                    ).properties(height=300)
+                    ).properties(height=330)
                     st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
@@ -248,13 +248,13 @@ def show_reports(ocultar_personal: bool = False):
                 st.dataframe(df_show_p, use_container_width=True, hide_index=True)
 
             with c_p2:
-                pie = alt.Chart(df_p_chart).mark_arc(outerRadius=130).encode(
+                pie = alt.Chart(df_p_chart).mark_arc(outerRadius=90).encode(
                     theta=alt.Theta("Monto:Q", stack=True),
                     color=alt.Color("categoria:N", scale=alt.Scale(scheme="tableau20"),
-                                    legend=alt.Legend(title=None, orient="bottom", columns=2)),
+                                    legend=alt.Legend(title=None, orient="bottom", columns=2, labelFontSize=10, labelLimit=115, symbolSize=80)),
                     order=alt.Order("Monto:Q", sort="descending"),
                     tooltip=["categoria:N", alt.Tooltip("Monto:Q", format="$,.2f"), alt.Tooltip("%:Q", format=".1%")]
-                ).properties(height=300)
+                ).properties(height=330)
                 st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
@@ -288,12 +288,12 @@ def show_reports(ocultar_personal: bool = False):
                 df_show_d['Deuda Total'] = df_show_d['Deuda Total'].apply(format_currency)
                 st.dataframe(df_show_d, use_container_width=True, hide_index=True)
             with c_d2:
-                pie = alt.Chart(df_rep).mark_arc(outerRadius=130).encode(
+                pie = alt.Chart(df_rep).mark_arc(outerRadius=90).encode(
                     theta=alt.Theta("Deuda Total:Q", stack=True),
                     color=alt.Color("Acreedor:N", scale=alt.Scale(scheme="tableau10"),
-                                    legend=alt.Legend(title=None, orient="bottom", columns=2)),
+                                    legend=alt.Legend(title=None, orient="bottom", columns=2, labelFontSize=10, labelLimit=115, symbolSize=80)),
                     tooltip=["Acreedor:N", alt.Tooltip("Deuda Total:Q", format="$,.2f"), alt.Tooltip("%:Q", format=".1%")]
-                ).properties(height=300)
+                ).properties(height=330)
                 st.altair_chart(pie, use_container_width=True)
         else: st.success("Sin deudas.")
 
@@ -338,12 +338,12 @@ def show_reports(ocultar_personal: bool = False):
             with c_l2:
                 if not df_pos.empty:
                     df_pos['%'] = df_pos['Utilidad'] / df_pos['Utilidad'].sum()
-                    pie = alt.Chart(df_pos).mark_arc(outerRadius=130).encode(
+                    pie = alt.Chart(df_pos).mark_arc(outerRadius=90).encode(
                         theta=alt.Theta("Utilidad:Q", stack=True),
                         color=alt.Color("Huerto:N", scale=alt.Scale(scheme="tableau10"),
-                                        legend=alt.Legend(title=None, orient="bottom", columns=2)),
+                                        legend=alt.Legend(title=None, orient="bottom", columns=2, labelFontSize=10, labelLimit=115, symbolSize=80)),
                         tooltip=["Huerto:N", alt.Tooltip("Utilidad:Q", format="$,.2f"), alt.Tooltip("%:Q", format=".1%")]
-                    ).properties(height=300)
+                    ).properties(height=330)
                     st.altair_chart(pie, use_container_width=True)
         else: st.info("Sin datos.")
 
